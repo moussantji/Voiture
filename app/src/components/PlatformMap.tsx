@@ -21,11 +21,17 @@ export type LatLng = { latitude: number; longitude: number };
 export type Region = LatLng & { latitudeDelta: number; longitudeDelta: number };
 
 const isNative = Platform.OS !== 'web';
-// require paresseux : jamais exécuté sur le web
+// 🗺️ Sélection du fournisseur natif (MapLibre gratuit / Google Maps) — config/maps.ts
+// require paresseux : l'autre SDK natif n'est jamais chargé, jamais rien sur le web
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const RNMaps: any = isNative ? require('react-native-maps') : null;
+const adapter: any = isNative
+  ? require('../config/maps').MAP_PROVIDER === 'maplibre'
+    ? require('./adapters/MapLibre.adapter')
+    : require('./adapters/GoogleMaps.adapter')
+  : null;
+const RNMaps = adapter;
 
-export const PROVIDER_GOOGLE: any = RNMaps ? RNMaps.PROVIDER_GOOGLE : undefined;
+export const PROVIDER_GOOGLE: any = adapter ? adapter.PROVIDER_GOOGLE : undefined;
 
 // ---------- Projection lat/lng → pixels (linéaire — échelle ville) ----------
 type Px = { x: number; y: number };
@@ -239,23 +245,9 @@ export const Polyline = (props: any) => {
 
 const MapView = (props: any) => {
   if (RNMaps) {
+    // L'adaptateur (MapLibre / Google) gère provider, style et région en interne
     const Native = RNMaps.default;
-    return (
-      <Native
-        provider={PROVIDER_GOOGLE}
-        style={props.style}
-        initialRegion={props.region}
-        region={undefined}
-        customMapStyle={props.customMapStyle}
-        showsCompass={false}
-        showsUserLocation={false}
-        toolbarEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-      >
-        {props.children}
-      </Native>
-    );
+    return <Native {...props}>{props.children}</Native>;
   }
   return <WebMap {...props} />;
 };

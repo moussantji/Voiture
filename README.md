@@ -10,6 +10,16 @@ npm install
 npm start          # puis : a (Android) · i (iOS) · w (web)
 ```
 
+## 🗺️ Carte : MapLibre gratuit + option Google (1 ligne)
+Le fournisseur de carte se change dans **`app/src/config/maps.ts`** :
+| `MAP_PROVIDER` | Coût | Clé requise |
+|---|---|---|
+| `'maplibre'` (défaut) — OpenStreetMap/CARTO, style Niger Royal appliqué | **0 F à vie** | ❌ aucune |
+| `'google'` — Google Maps natif + style Niger Royal perso | 0 F (illimité) | ✅ clé dans `app/app.json` |
+
+> ⚠️ MapLibre est un module natif → il faut un **dev build** (pas Expo Go) :
+> `npx expo prebuild && npx expo run:android` (ou `npx expo run:ios`).
+
 ## 📂 Structure
 ```
 design/palettes/   → maquettes validées (5 images)
