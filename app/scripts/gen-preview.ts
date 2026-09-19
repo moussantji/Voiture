@@ -202,14 +202,16 @@ function driverScreen(): string {
 const CSS = `
 :root{--bg:#0B1E1A;--pri:#0E5C46;--gold:#E3B94E;--sand:#EFE3CC;--info:#1E8A8A;--panel:#0D2A22;--panelL:#123B30;--border:rgba(227,185,78,.35);--txt:#F4EFE3;--mut:#9FB8AE;--ok:#2ECC71;--serif:Georgia,'Playfair Display','Times New Roman',serif}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;color:var(--txt);padding:18px 10px}
+body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min-height:100vh;position:relative;font-family:system-ui,-apple-system,sans-serif;color:var(--txt);overflow:hidden}
+#board{position:absolute;left:50%;top:6px;width:min(402px,96vw);transform:translateX(-50%) scale(1);transform-origin:top center;display:flex;flex-direction:column;align-items:stretch}
+#board .tabs{justify-content:center}
 .crown{font-size:26px;text-align:center}
 .brand{font-family:var(--serif);color:var(--gold);font-size:26px;letter-spacing:6px;text-align:center;margin-top:4px}
 .sub{color:var(--mut);font-size:11px;letter-spacing:2px;text-align:center;margin:5px 0 14px}
 .tabs{display:flex;gap:10px;margin-bottom:14px}
 .tab{background:var(--panel);border:1px solid var(--border);color:var(--mut);padding:10px 18px;border-radius:22px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
 .tab.on{background:var(--gold);color:#12251F;border-color:var(--gold)}
-.phone{width:402px;height:760px;max-width:96vw;border-radius:44px;border:2px solid rgba(227,185,78,.55);background:#0A1512;overflow:hidden;box-shadow:0 0 60px rgba(227,185,78,.22),0 30px 60px rgba(0,0,0,.6);position:relative}
+.phone{width:100%;height:760px;border-radius:44px;border:2px solid rgba(227,185,78,.55);background:#0A1512;overflow:hidden;box-shadow:0 0 60px rgba(227,185,78,.22),0 30px 60px rgba(0,0,0,.6);position:relative}
 .notch{height:26px;display:flex;align-items:center;justify-content:center}
 .notch::after{content:'';width:110px;height:18px;border-radius:9px;background:#000}
 .screen{position:relative;height:calc(100% - 26px);overflow:hidden;border-radius:0 0 42px 42px}
@@ -307,11 +309,20 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .done-cash{color:var(--mut);font-size:13px;text-align:center;margin:12px 0 6px}
 .attr{position:absolute;left:10px;bottom:6px;color:rgba(216,210,192,.42);font-size:8.5px;letter-spacing:.4px;z-index:10}
 .route-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;}
-@media(max-width:440px){.phone{width:100vw;height:100vh;max-height:none;border-radius:0;border:none}.brand,.sub,.crown,.tabs{padding:0}}
+@media(max-width:440px){.phone{height:100vh;border-radius:0;border:none}}
 `;
 
 const JS = `
 const W=${W},H=${H};
+// 📐 Ajuste automatiquement la taille à la fenêtre (tout tient visible)
+function fit(){
+  const b=document.getElementById('board');if(!b)return;
+  b.style.transform='translateX(-50%) scale(1)';
+  const h=b.scrollHeight,w=b.offsetWidth||402;
+  const s=Math.min(1,(window.innerHeight-10)/h,(window.innerWidth-10)/w);
+  b.style.transform='translateX(-50%) scale('+s+')';
+}
+window.addEventListener('resize',fit);window.addEventListener('load',fit);setTimeout(fit,50);
 const R={latitude:${R.latitude},longitude:${R.longitude},latitudeDelta:${R.latitudeDelta},longitudeDelta:${R.longitudeDelta}};
 const proj=p=>({x:((p.longitude-(R.longitude-R.longitudeDelta/2))/R.longitudeDelta)*W,y:((R.latitude+R.latitudeDelta/2-p.latitude)/R.latitudeDelta)*H});
 const U={latitude:${USER_POSITION.latitude},longitude:${USER_POSITION.longitude}};
@@ -365,11 +376,13 @@ const html = `<!DOCTYPE html>
 <style>${CSS}</style>
 </head>
 <body>
+<div id="board">
 <div class="crown">👑</div>
 <div class="brand">NIGER ROYAL</div>
 <div class="sub">PREVIEW FIDÈLE · BAMAKO 🇲🇱</div>
 <div class="tabs"><button class="tab on" id="tabC">📱 App Client</button><button class="tab" id="tabD">🚗 App Chauffeur</button></div>
 <div class="phone"><div class="notch"></div><div class="screen">${clientScreen()}${driverScreen()}</div></div>
+</div>
 <script>${JS}</script>
 </body>
 </html>`;

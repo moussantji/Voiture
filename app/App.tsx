@@ -1,6 +1,6 @@
 // 👑 NIGER ROYAL — App racine (Client & Chauffeur) · V1
 import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,19 +23,39 @@ const navTheme = {
 
 // 📱 Sur le web : l'app est présentée dans un cadre "smartphone" premium
 //    (comme sur la maquette validée design/palettes/palette-2-niger-royal-final-v3.png)
+// 📐 Le cadre s'adapte automatiquement : zoom-out propre si la fenêtre est petite.
 function WebPhoneFrame({ children }: { children: React.ReactNode }) {
+  const { width: winW, height: winH } = useWindowDimensions();
+  const CONTENT_W = 402;
+  const CONTENT_H = 900; // couronne + marque + sous-titre + téléphone (760) + hint
+  const scale = Math.min(1, (winH - 12) / CONTENT_H, (winW - 12) / (CONTENT_W + 20));
+  const offX = -(CONTENT_W - CONTENT_W * scale) / 2;
+  const offY = -(CONTENT_H - CONTENT_H * scale) / 2;
   return (
     <View style={frameStyles.stage}>
-      <Text style={frameStyles.crown}>👑</Text>
-      <Text style={frameStyles.brand}>NIGER ROYAL</Text>
-      <Text style={frameStyles.sub}>Bamako · Mali 🇲🇱</Text>
-      <View style={frameStyles.phone}>
-        <View style={frameStyles.notchBar}>
-          <View style={frameStyles.notch} />
+      <View style={{ width: CONTENT_W * scale, height: CONTENT_H * scale }}>
+        <View
+          style={[
+            frameStyles.inner,
+            {
+              left: offX,
+              top: offY,
+              transform: [{ scale }],
+            } as any,
+          ]}
+        >
+          <Text style={frameStyles.crown}>👑</Text>
+          <Text style={frameStyles.brand}>NIGER ROYAL</Text>
+          <Text style={frameStyles.sub}>Bamako · Mali 🇲🇱</Text>
+          <View style={frameStyles.phone}>
+            <View style={frameStyles.notchBar}>
+              <View style={frameStyles.notch} />
+            </View>
+            <View style={frameStyles.screen}>{children}</View>
+          </View>
+          <Text style={frameStyles.hint}>Preview web · Sur Android/iOS : la vraie Google Maps 🗺️</Text>
         </View>
-        <View style={frameStyles.screen}>{children}</View>
       </View>
-      <Text style={frameStyles.hint}>Preview web · Sur Android/iOS : la vraie Google Maps 🗺️</Text>
     </View>
   );
 }
@@ -62,8 +82,15 @@ const frameStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#051A15',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
+    justifyContent: 'flex-start',
+    paddingTop: 6,
+    overflow: 'hidden',
+  },
+  inner: {
+    position: 'absolute',
+    width: 402,
+    height: 900,
+    alignItems: 'center',
   },
   crown: { fontSize: 26 },
   brand: {
@@ -74,12 +101,10 @@ const frameStyles = StyleSheet.create({
     marginTop: 6,
     fontFamily: fonts.display,
   } as any,
-  sub: { color: colors.textMuted, fontSize: 11, letterSpacing: 2, marginTop: 4, marginBottom: 14 },
+  sub: { color: colors.textMuted, fontSize: 11, letterSpacing: 2, marginTop: 4, marginBottom: 12 },
   phone: {
-    width: '100%',
-    maxWidth: 402,
-    flex: 1,
-    maxHeight: 780,
+    width: 402,
+    height: 762,
     borderRadius: 44,
     backgroundColor: '#0A1512',
     borderWidth: 2,
@@ -94,5 +119,5 @@ const frameStyles = StyleSheet.create({
   notchBar: { height: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A1512' },
   notch: { width: 110, height: 20, borderRadius: 10, backgroundColor: '#000000' },
   screen: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' },
-  hint: { color: colors.textMuted, fontSize: 10, marginTop: 12, letterSpacing: 0.5 },
+  hint: { color: colors.textMuted, fontSize: 10, marginTop: 10, letterSpacing: 0.5 },
 });
