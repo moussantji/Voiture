@@ -222,18 +222,9 @@ function mapSVG() {
   const pk2 = proj({ latitude: 12.6525, longitude: -7.9745 });
   return `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">
   <defs>
-    <radialGradient id="bg" cx="46%" cy="38%" r="95%">
-      <stop offset="0%" stop-color="#0E3B2D"/><stop offset="55%" stop-color="#0C2A21"/><stop offset="100%" stop-color="#0B1E1A"/>
-    </radialGradient>
-    <linearGradient id="river" x1="0%" y1="0%" x2="100%" y2="30%">
-      <stop offset="0%" stop-color="#1E8A8A"/><stop offset="55%" stop-color="#1D7C84"/><stop offset="100%" stop-color="#1E8A8A"/>
-    </linearGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glowRoute" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <radialGradient id="bg" cx="46%" cy="38%" r="95%"><stop offset="0%" stop-color="#0E3B2D"/><stop offset="55%" stop-color="#0C2A21"/><stop offset="100%" stop-color="#0B1E1A"/></radialGradient>
+    <linearGradient id="river" x1="0%" y1="0%" x2="100%" y2="30%"><stop offset="0%" stop-color="#1E8A8A"/><stop offset="55%" stop-color="#1D7C84"/><stop offset="100%" stop-color="#1E8A8A"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
   ${texture.map((t) => {
@@ -253,7 +244,7 @@ function mapSVG() {
   }).join("")}`).join("")}
 </svg>`;
 }
-function labelsHTML() {
+function staticLabels() {
   const city = proj(CITY_LABEL);
   const qs = labeledQuartiers().map((q) => {
     const p2 = proj(q);
@@ -265,18 +256,17 @@ function labelsHTML() {
   }).join("");
   return `${qs}<span class="city" style="left:${(city.x - 48).toFixed(0)}px;top:${city.y.toFixed(0)}px">Bamako</span>${rivers}`;
 }
-var clientRouteD = (() => {
-  const dest = QUARTIERS.find((q) => q.name === "ACI 2000");
-  const mid1 = { latitude: USER_POSITION.latitude + (dest.latitude - USER_POSITION.latitude) * 0.35 + 4e-3, longitude: USER_POSITION.longitude + (dest.longitude - USER_POSITION.longitude) * 0.35 };
-  const mid2 = { latitude: USER_POSITION.latitude + (dest.latitude - USER_POSITION.latitude) * 0.7, longitude: USER_POSITION.longitude + (dest.longitude - USER_POSITION.longitude) * 0.7 + 3e-3 };
-  return `M ${[USER_POSITION, mid1, mid2, { latitude: dest.latitude, longitude: dest.longitude }].map((p2) => `${proj(p2).x.toFixed(1)} ${proj(p2).y.toFixed(1)}`).join(" L ")}`;
-})();
-function clientScreen() {
-  const cars = CARS.map((c, i) => {
+function staticCars() {
+  return `<div class="cars">${CARS.map((c, i) => {
     const p2 = proj(c);
     return `<div class="car" style="left:${p2.x.toFixed(0)}px;top:${p2.y.toFixed(0)}px;transform:rotate(${c.heading}deg);animation-delay:${i * 0.7 % 3}s"><span>\u{1F695}</span></div>`;
-  }).join("");
+  }).join("")}</div>`;
+}
+function staticPin() {
   const user = proj(USER_POSITION);
+  return `<div class="user-pin" style="left:${user.x.toFixed(0)}px;top:${user.y.toFixed(0)}px"><i></i><b><u></u></b><s></s></div>`;
+}
+function clientScreen() {
   const items = QUARTIERS.slice(0, 9).map((q) => {
     const km = distanceKm(USER_POSITION, q) * 1.35;
     return `<div class="qi" data-name="${q.name}" data-km="${km.toFixed(1)}" data-price="${formatFCFA(estimatePrice(km))}" data-min="${estimateDurationMin(km)}" data-lat="${q.latitude}" data-lng="${q.longitude}">
@@ -286,16 +276,13 @@ function clientScreen() {
     </div>`;
   }).join("");
   return `<div class="scr" id="screenClient">
-  ${mapSVG()}
-  ${labelsHTML()}
-  <div class="cars">${cars}</div>
-  <div class="user-pin" style="left:${user.x.toFixed(0)}px;top:${user.y.toFixed(0)}px"><i></i><b><u></u></b><s></s></div>
+  <div class="leaflet-host" id="mapC"></div>
+  <div class="static-map" id="staticC">${mapSVG()}${staticLabels()}${staticCars()}${staticPin()}<svg class="route-svg" viewBox="0 0 ${W} ${H}"><polyline id="polyC" points="" fill="none" stroke="#E3B94E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div class="topbar">
     <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
     <span style="flex:1"></span>
     <button class="fbtn" data-notif><span class="bell-i"></span><i class="rdot">2</i></button>
   </div>
-  <svg class="route-svg" id="routeC" viewBox="0 0 ${W} ${H}"><polyline id="polyC" points="" fill="none" stroke="#E3B94E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowRoute)"/><text id="pinEnd" x="-50" y="-50" font-size="18" text-anchor="middle">\u{1F4CD}</text></svg>
   <div class="sheet" id="sheetC">
     <div class="handle"></div>
     <div id="cIdle">
@@ -324,23 +311,13 @@ function clientScreen() {
   <div class="popover" id="popover">
     <div class="pop-card"><div class="handle"></div><div class="pop-title">O\xF9 allez-vous ?</div>${items}<button class="gbtn outline" id="popClose">Fermer</button></div>
   </div>
-  <div class="attr">Carte stylis\xE9e \xB7 Niger Royal</div>
 </div>`;
 }
 function driverScreen() {
-  const me = proj(DRIVER_POSITION);
   const req = INCOMING_REQUEST;
-  const mid1 = { latitude: (DRIVER_POSITION.latitude + req.pickup.latitude) / 2 + 0.01, longitude: (DRIVER_POSITION.longitude + req.pickup.longitude) / 2 + 0.012 };
-  const mid2 = { latitude: (req.pickup.latitude + req.destination.latitude) / 2 + 8e-3, longitude: (req.pickup.longitude + req.destination.longitude) / 2 + 0.015 };
-  const dToClient = `M ${[DRIVER_POSITION, mid1, { latitude: req.pickup.latitude, longitude: req.pickup.longitude }].map((p2) => `${proj(p2).x.toFixed(1)} ${proj(p2).y.toFixed(1)}`).join(" L ")}`;
-  const dRiding = `M ${[{ latitude: req.pickup.latitude, longitude: req.pickup.longitude }, mid2, { latitude: req.destination.latitude, longitude: req.destination.longitude }].map((p2) => `${proj(p2).x.toFixed(1)} ${proj(p2).y.toFixed(1)}`).join(" L ")}`;
   return `<div class="scr hidden" id="screenDriver">
-  ${mapSVG()}
-  ${labelsHTML()}
-  <svg class="route-svg" viewBox="0 0 ${W} ${H}">
-    <polyline id="polyDrive" points="" fill="none" stroke="#E3B94E" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowRoute)"/>
-  </svg>
-  <div class="car big" style="left:${me.x.toFixed(0)}px;top:${me.y.toFixed(0)}px"><span>\u{1F697}</span></div>
+  <div class="leaflet-host" id="mapD"></div>
+  <div class="static-map" id="staticD">${mapSVG()}${staticLabels()}<div class="car big" style="left:${proj(DRIVER_POSITION).x.toFixed(0)}px;top:${proj(DRIVER_POSITION).y.toFixed(0)}px"><span>\u{1F697}</span></div><svg class="route-svg" viewBox="0 0 ${W} ${H}"><path id="routeDStatic" d="" stroke="#E3B94E" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div class="topbar">
     <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
     <button class="pill" id="pill"><i class="pdot"></i>En service</button>
@@ -387,8 +364,6 @@ function driverScreen() {
       <button class="gbtn" id="btnCash">Encaisser et continuer</button>
     </div>
   </div>
-  <div class="attr">Carte stylis\xE9e \xB7 Niger Royal</div>
-  <div class="hidden" id="routeData" data-toclient="${dToClient}" data-riding="${dRiding}" data-pickup-name="${req.pickup.name}" data-dest-name="${req.destination.name}"></div>
 </div>`;
 }
 var CSS = `
@@ -396,11 +371,10 @@ var CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min-height:100vh;position:relative;font-family:system-ui,-apple-system,sans-serif;color:var(--txt);overflow:hidden}
 #board{position:absolute;left:50%;top:6px;width:min(402px,96vw);transform:translateX(-50%) scale(1);transform-origin:top center;display:flex;flex-direction:column;align-items:stretch}
-#board .tabs{justify-content:center}
 .crown{font-size:26px;text-align:center}
 .brand{font-family:var(--serif);color:var(--gold);font-size:26px;letter-spacing:6px;text-align:center;margin-top:4px}
 .sub{color:var(--mut);font-size:11px;letter-spacing:2px;text-align:center;margin:5px 0 14px}
-.tabs{display:flex;gap:10px;margin-bottom:14px}
+.tabs{display:flex;gap:10px;margin-bottom:14px;justify-content:center}
 .tab{background:var(--panel);border:1px solid var(--border);color:var(--mut);padding:10px 18px;border-radius:22px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
 .tab.on{background:var(--gold);color:#12251F;border-color:var(--gold)}
 .phone{width:100%;height:760px;border-radius:44px;border:2px solid rgba(227,185,78,.55);background:#0A1512;overflow:hidden;box-shadow:0 0 60px rgba(227,185,78,.22),0 30px 60px rgba(0,0,0,.6);position:relative}
@@ -409,21 +383,40 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .screen{position:relative;height:calc(100% - 26px);overflow:hidden;border-radius:0 0 42px 42px}
 .scr{position:absolute;inset:0}
 .hidden{display:none!important}
+/* ---- Leaflet ---- */
+.leaflet-host{position:absolute;inset:0;z-index:1;display:none;background:#0B1E1A}
+.leaflet-container{background:#0B1E1A;font-family:inherit;outline:none}
+.leaflet-tile-pane{filter:hue-rotate(118deg) saturate(.85) brightness(.93) contrast(1.05)}
+.leaflet-control-attribution{background:rgba(13,42,34,.75)!important;color:rgba(216,210,192,.7)!important;font-size:8px!important;padding:2px 6px!important}
+.leaflet-control-attribution a{color:#9FD6D2!important}
+path.glowRoute{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}
+.nrmk{background:none;border:none}
+/* ---- carte statique (repli) ---- */
+.static-map{position:absolute;inset:0;z-index:1;display:none}
+.static-map.show{display:block}
 .map-svg{position:absolute;inset:0;width:100%;height:100%}
 .q{position:absolute;font-size:8.5px;letter-spacing:1.5px;color:#B8CCBE;opacity:.87;transform:translateX(-24px);text-shadow:0 1px 4px rgba(11,30,26,.9)}
 .city{position:absolute;font-family:var(--serif);font-size:26px;font-weight:700;letter-spacing:1.5px;color:#F4EFE3;text-shadow:0 2px 8px rgba(0,0,0,.65)}
 .river-lbl{position:absolute;font-family:var(--serif);font-style:italic;font-size:10px;color:#9FD6D2;transform:rotate(-7deg);text-shadow:0 1px 4px rgba(11,30,26,.9)}
 .car{position:absolute;width:34px;height:34px;border-radius:50%;background:var(--gold);border:2px solid #0B1E1A;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px rgba(227,185,78,.7);transform-origin:center;animation:float 3.2s ease-in-out infinite;z-index:3}
 .car span{transform:translateY(-1px)}
-.car.big{width:42px;height:42px;font-size:20px;z-index:3}
+.car.big{width:42px;height:42px;font-size:20px}
 @keyframes float{0%,100%{margin-top:0}50%{margin-top:-4px}}
+.route-svg{position:absolute;inset:0;width:100%;height:100%}
 .user-pin{position:absolute;width:8px;height:8px;transform:translate(-50%,-50%);z-index:4}
 .user-pin i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--gold);opacity:.55;animation:pulse 1.6s ease-out infinite}
 @keyframes pulse{to{transform:scale(2.3);opacity:0}}
 .user-pin b{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--gold);border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9);display:flex;align-items:center;justify-content:center}
 .user-pin u{width:8px;height:8px;border-radius:50%;background:#12251F;text-decoration:none}
 .user-pin s{position:absolute;left:50%;top:11px;width:3px;height:10px;margin-left:-1.5px;background:var(--gold);border-radius:2px;text-decoration:none}
-.topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:30}
+/* markers leaflet */
+.lcar{width:34px;height:34px;border-radius:50%;background:var(--gold);border:2px solid #0B1E1A;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px rgba(227,185,78,.75)}
+.lpin{position:relative;width:8px;height:8px}
+.lpin i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--gold);opacity:.55;animation:pulse 1.6s ease-out infinite}
+.lpin b{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--gold);border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9)}
+.lpin b::after{content:'';position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#12251F}
+/* ---- chrome UI ---- */
+.topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:600}
 .fbtn{width:46px;height:46px;border-radius:50%;background:var(--panel);border:1px solid var(--border);box-shadow:0 4px 8px rgba(0,0,0,.35);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center}
 .menu-i{display:flex;flex-direction:column;gap:3.6px;justify-content:center}
 .menu-i i{display:block;width:17px;height:2.4px;border-radius:2px;background:var(--gold)}
@@ -432,9 +425,9 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .bell-i::before{content:'';position:absolute;left:1.5px;top:2px;width:13px;height:11px;background:var(--gold);border-radius:7px 7px 0 0}
 .bell-i::after{content:'';position:absolute;left:-1px;top:13px;width:18px;height:3px;border-radius:2px;background:var(--gold)}
 .rdot{position:absolute;top:1px;right:1px;min-width:16px;height:16px;border-radius:9px;background:#E85D5D;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid var(--panel);font-style:normal}
-.pill{background:var(--panel);border:1px solid var(--border);border-radius:20px;color:var(--txt);font-size:14px;font-weight:700;padding:11px 18px;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.35)}
+.pill{background:var(--panel);border:1px solid var(--border);border-radius:20px;color:var(--txt);font-size:14px;font-weight:700;padding:11px 18px;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.35);margin:0 auto}
 .pdot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
-.sheet{position:absolute;left:12px;right:12px;bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:24px;padding:12px 16px 16px;box-shadow:0 -6px 18px rgba(0,0,0,.4);z-index:20}
+.sheet{position:absolute;left:12px;right:12px;bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:24px;padding:12px 16px 16px;box-shadow:0 -6px 18px rgba(0,0,0,.4);z-index:600}
 .handle{width:44px;height:4px;border-radius:2px;background:rgba(227,185,78,.45);margin:0 auto 12px}
 .field{display:flex;align-items:center;gap:12px;background:var(--panelL);border:1px solid rgba(227,185,78,.22);border-radius:14px;padding:12px 14px;cursor:pointer}
 .field-txt{flex:1;display:flex;flex-direction:column}
@@ -461,7 +454,7 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .cinfo small{color:var(--mut);font-size:12px}
 .cinfo small.gold{color:var(--gold);font-weight:700}
 .callb{width:46px;height:46px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer}
-.popover{position:absolute;inset:0;background:rgba(5,14,12,.72);display:none;align-items:flex-end;z-index:40}
+.popover{position:absolute;inset:0;background:rgba(5,14,12,.72);display:none;align-items:flex-end;z-index:700}
 .popover.open{display:flex}
 .pop-card{width:100%;background:var(--panel);border-top:1px solid var(--border);border-radius:26px 26px 0 0;padding:12px 18px 18px;max-height:74%;overflow:auto}
 .pop-title{font-family:var(--serif);color:var(--gold);font-size:20px;font-weight:700;margin-bottom:8px}
@@ -478,7 +471,7 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .idle-i{font-size:32px}
 .idle b{display:block;font-size:16.5px;font-weight:800;margin-top:8px}
 .idle small{display:block;color:var(--mut);font-size:12.5px;margin-top:6px;line-height:1.5}
-.overlay{position:absolute;inset:0;background:rgba(5,14,12,.72);display:flex;align-items:flex-end;z-index:50;padding:14px 14px 24px}
+.overlay{position:absolute;inset:0;background:rgba(5,14,12,.72);display:flex;align-items:flex-end;z-index:800;padding:14px 14px 24px}
 .req-card{width:100%;background:var(--panel);border:1.5px solid var(--gold);border-radius:24px;padding:20px}
 .req-t{font-family:var(--serif);color:var(--txt);font-size:21px;font-weight:700;text-align:center}
 .req-route{background:var(--panelL);border-radius:16px;padding:14px;margin-top:14px}
@@ -499,34 +492,60 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .req-actions{display:flex;gap:12px}
 .done-i{font-size:42px;text-align:center}
 .done-cash{color:var(--mut);font-size:13px;text-align:center;margin:12px 0 6px}
-.attr{position:absolute;left:10px;bottom:6px;color:rgba(216,210,192,.42);font-size:8.5px;letter-spacing:.4px;z-index:10}
-.route-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;}
 @media(max-width:440px){.phone{height:100vh;border-radius:0;border:none}}
 `;
 var JS = `
 const W=${W},H=${H};
-// \u{1F4D0} Ajuste automatiquement la taille \xE0 la fen\xEAtre (tout tient visible)
-function fit(){
-  const b=document.getElementById('board');if(!b)return;
-  b.style.transform='translateX(-50%) scale(1)';
-  const h=b.scrollHeight,w=b.offsetWidth||402;
-  const s=Math.min(1,(window.innerHeight-10)/h,(window.innerWidth-10)/w);
-  b.style.transform='translateX(-50%) scale('+s+')';
-}
-window.addEventListener('resize',fit);window.addEventListener('load',fit);setTimeout(fit,50);
 const R={latitude:${R.latitude},longitude:${R.longitude},latitudeDelta:${R.latitudeDelta},longitudeDelta:${R.longitudeDelta}};
-const proj=p=>({x:((p.longitude-(R.longitude-R.longitudeDelta/2))/R.longitudeDelta)*W,y:((R.latitude+R.latitudeDelta/2-p.latitude)/R.latitudeDelta)*H});
-const U={latitude:${USER_POSITION.latitude},longitude:${USER_POSITION.longitude}};
+const pj=p=>({x:((p.longitude-(R.longitude-R.longitudeDelta/2))/R.longitudeDelta)*W,y:((R.latitude+R.latitudeDelta/2-p.latitude)/R.latitudeDelta)*H});
+const U=[${USER_POSITION.latitude},${USER_POSITION.longitude}];
 const byId=id=>document.getElementById(id);
+// \u{1F4D0} fit auto
+function fit(){const b=byId('board');if(!b)return;b.style.transform='translateX(-50%) scale(1)';const h=b.scrollHeight,w=b.offsetWidth||402;const s=Math.min(1,(window.innerHeight-10)/h,(window.innerWidth-10)/w);b.style.transform='translateX(-50%) scale('+s+')';}
+window.addEventListener('resize',fit);window.addEventListener('load',fit);setTimeout(fit,50);
 document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>alert('Menu \u2630 (d\xE9mo)'));
-document.querySelectorAll('[data-notif]').forEach(b=>b.onclick=()=>alert('\u{1F514} 2 notifications (d\xE9mo)'));
+document.querySelectorAll('[data-notif]').forEach(b=>b.onclick=()=>alert('\u{1F514} Notifications (d\xE9mo)'));
+// ---- Leaflet ----
+let mc=null,md=null,routeC=null,routeD=null,cars=[],tileErr={c:0,d:0};
+function mkMap(el,which){
+  const host=byId(el);host.style.display='block';
+  const map=L.map(el,{zoomControl:false,attributionControl:true,center:U,zoom:12.6,scrollWheelZoom:true,doubleClickZoom:true});
+  const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'\xA9 OpenStreetMap \xB7 \xA9 CARTO',maxZoom:19,subdomains:'abcd'});
+  tiles.on('tileerror',()=>{tileErr[which]++;if(tileErr[which]>6){fallback(which=== 'c'?'staticC':'staticD',host);}});
+  tiles.addTo(map);return map;
+}
+function fallback(staticId,host){const s=byId(staticId);hostsDel(host);s&&s.classList.add('show');}
+function hostsDel(h){try{h.style.display='none'}catch(e){}}
+function carIcon(){return L.divIcon({className:'nrmk',html:'<div class="lcar">\u{1F695}</div>',iconSize:[34,34],iconAnchor:[17,17]});}
+function pinIcon(){return L.divIcon({className:'nrmk',html:'<div class="lpin"><i></i><b></b></div>',iconSize:[8,8],iconAnchor:[4,4]});}
+function flagIcon(){return L.divIcon({className:'nrmk',html:'<div style="font-size:20px;transform:translate(-50%,-100%)">\u{1F4CD}</div>',iconSize:[20,20],iconAnchor:[10,20]});}
+function bigCarIcon(){return L.divIcon({className:'nrmk',html:'<div class="lcar" style="width:42px;height:42px;font-size:20px">\u{1F697}</div>',iconSize:[42,42],iconAnchor:[21,21]});}
+function drawRoute(map,which,pts){
+  const arr=pts.map(p=>p.length?p:[p.latitude,p.longitude]);
+  if(which==='c'){if(routeC)routeC.remove();routeC=L.polyline(arr,{color:'#E3B94E',weight:4,className:'glowRoute'}).addTo(map);}
+  else{if(routeD)routeD.remove();routeD=L.polyline(arr,{color:'#E3B94E',weight:4.5,className:'glowRoute'}).addTo(map);}
+}
+function initMaps(){
+  if(typeof L==='undefined'){byId('staticC').classList.add('show');byId('staticD').classList.add('show');return false;}
+  try{
+    mc=mkMap('mapC','c');
+    L.marker(U,{icon:pinIcon()}).addTo(mc);
+    ${CARS.map((c) => `cars.push(L.marker([${c.latitude},${c.longitude}],{icon:carIcon()}).addTo(mc));`).join("\n    ")}
+    setInterval(()=>{cars.forEach(m=>{const [a,b]=[m.getLatLng().lat,m.getLatLng().lng];m.setLatLng([a+(Math.random()-.5)*0.0022,b+(Math.random()-.5)*0.0022]);});},1800);
+    md=mkMap('mapD','d');
+    L.marker(${`[${DRIVER_POSITION.latitude},${DRIVER_POSITION.longitude}]`},{icon:bigCarIcon()}).addTo(md);
+  }catch(e){byId('staticC').classList.add('show');byId('staticD').classList.add('show');return false;}
+  return true;
+}
+const ok=initMaps();
 // onglets
 const tabC=byId('tabC'),tabD=byId('tabD');
-function show(name){byId('screenClient').classList.toggle('hidden',name!=='c');byId('screenDriver').classList.toggle('hidden',name!=='d');tabC.classList.toggle('on',name==='c');tabD.classList.toggle('on',name==='d');if(name==='d')armRequest();}
+function show(name){byId('screenClient').classList.toggle('hidden',name!=='c');byId('screenDriver').classList.toggle('hidden',name!=='d');tabC.classList.toggle('on',name==='c');tabD.classList.toggle('on',name==='d');setTimeout(()=>{if(ok)(name==='c'?mc:md).invalidateSize();},60);if(name==='d')armRequest();}
 tabC.onclick=()=>show('c');tabD.onclick=()=>show('d');
 // ---- CLIENT ----
 byId('destField').onclick=()=>byId('popover').classList.add('open');
 byId('popClose').onclick=()=>byId('popover').classList.remove('open');
+let destMk=null;
 document.querySelectorAll('.qi').forEach(it=>it.onclick=()=>{
   byId('destVal').textContent=it.dataset.name;
   byId('estRow').style.display='flex';
@@ -535,41 +554,61 @@ document.querySelectorAll('.qi').forEach(it=>it.onclick=()=>{
   byId('estPrice').textContent=it.dataset.price;
   byId('btnSearch').disabled=false;
   const dest={latitude:+it.dataset.lat,longitude:+it.dataset.lng};
-  const m1={latitude:U.latitude+(dest.latitude-U.latitude)*0.35+0.004,longitude:U.longitude+(dest.longitude-U.longitude)*0.35};
-  const m2={latitude:U.latitude+(dest.latitude-U.latitude)*0.7,longitude:U.longitude+(dest.longitude-U.longitude)*0.7+0.003};
-  const pts=[U,m1,m2,dest].map(proj);
-  byId('polyC').setAttribute('points',pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '));
-  const last=pts[3];byId('pinEnd').setAttribute('x',last.x);byId('pinEnd').setAttribute('y',last.y-8);
+  const u={latitude:U[0],longitude:U[1]};
+  const m1={latitude:u.latitude+(dest.latitude-u.latitude)*0.35+0.004,longitude:u.longitude+(dest.longitude-u.longitude)*0.35};
+  const m2={latitude:u.latitude+(dest.latitude-u.latitude)*0.7,longitude:u.longitude+(dest.longitude-u.longitude)*0.7+0.003};
+  if(ok){drawRoute(mc,'c',[u,m1,m2,dest]);if(destMk)destMk.remove();destMk=L.marker([dest.latitude,dest.longitude],{icon:flagIcon()}).addTo(mc);mc.flyToBounds(L.polyline([[u.latitude,u.longitude],[dest.latitude,dest.longitude]]).getBounds(),{padding:[40,60]});}
+  else{const pts=[u,m1,m2,dest].map(pj);byId('polyC').setAttribute('points',pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '));}
   byId('popover').classList.remove('open');
 });
 byId('btnSearch').onclick=e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Recherche d\u2019un chauffeur\u2026';setTimeout(()=>{byId('cIdle').style.display='none';byId('foundPrice').textContent=byId('estPrice').textContent;byId('cFound').style.display='block';},1600);};
 byId('btnCancel').onclick=()=>{byId('cFound').style.display='none';byId('cIdle').style.display='block';const b=byId('btnSearch');b.disabled=false;b.textContent='Rechercher une voiture';};
 // ---- CHAUFFEUR ----
-const rd=JSON.parse(JSON.stringify(byId('routeData').dataset));
+const PK=[${INCOMING_REQUEST.pickup.latitude},${INCOMING_REQUEST.pickup.longitude}];
+const DS=[${INCOMING_REQUEST.destination.latitude},${INCOMING_REQUEST.destination.longitude}];
+const DR=[${DRIVER_POSITION.latitude},${DRIVER_POSITION.longitude}];
+const dstat={toStatic:null,ridingStatic:null};
+dstat.toStatic='M '+[DR,[ (DR[0]+PK[0])/2+0.01,(DR[1]+PK[1])/2+0.012 ],PK].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
+dstat.ridingStatic='M '+[PK,[ (PK[0]+DS[0])/2+0.008,(PK[1]+DS[1])/2+0.015 ],DS].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
 let armed=false,accepted=false,timer=null;
-function armRequest(){if(armed||accepted)return;armed=true;setTimeout(()=>{if(!accepted){showReq();}},1200);}
+function armRequest(){if(armed||accepted)return;armed=true;setTimeout(()=>{if(!accepted)showReq();},1200);}
 function showReq(){byId('reqModal').classList.remove('hidden');let s=15;const fill=byId('cntFill');fill.style.width='100%';byId('cntLbl').textContent=s+'s pour accepter';timer=setInterval(()=>{s--;fill.style.width=(s/15*100)+'%';byId('cntLbl').textContent=s+'s pour accepter';if(s<=0){clearInterval(timer);byId('reqModal').classList.add('hidden');}},1000);}
 function stopTimer(){if(timer)clearInterval(timer);}
-byId('btnRefuse').onclick=()=>{stopTimer();byId('reqModal').classList.add('hidden');};
-byId('btnAccept').onclick=()=>{stopTimer();accepted=true;byId('reqModal').classList.add('hidden');byId('dIdle').style.display='none';byId('dClient').style.display='flex';byId('dInfo').style.display='flex';byId('dInfoLbl').textContent='PRISE EN CHARGE';byId('dInfoVal').textContent=rd.pickupName;byId('btnDrive').style.display='block';polyToClient();};
-function polyToClient(){byId('polyDrive').setAttribute('points','');const svg=byId('polyDrive').parentNode;svg.querySelector('#dTmp')?.remove();const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',rd.toclient);p.setAttribute('stroke','#E3B94E');p.setAttribute('stroke-width','4.5');p.setAttribute('fill','none');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.setAttribute('filter','url(#glowRoute)');p.id='dTmp';svg.appendChild(p);}
+byId('btnRefuse').onclick=()=>{stopTimer();byId('reqModal').classList.add('hidden');armed=true;setTimeout(()=>{if(!accepted)showReq();},4000);};
+byId('btnAccept').onclick=()=>{
+  stopTimer();accepted=true;byId('reqModal').classList.add('hidden');
+  byId('dIdle').style.display='none';byId('dClient').style.display='flex';byId('dInfo').style.display='flex';
+  byId('dInfoLbl').textContent='PRISE EN CHARGE';byId('dInfoVal').textContent='${INCOMING_REQUEST.pickup.name}';
+  byId('btnDrive').style.display='block';
+  if(ok){const m1=[(DR[0]+PK[0])/2+0.01,(DR[1]+PK[1])/2+0.012];drawRoute(md,'d',[DR,m1,PK]);md.flyToBounds(L.polyline([DR,PK]).getBounds(),{padding:[50,80]});}
+  else{byId('routeDStatic').setAttribute('d',dstat.toStatic);}
+};
 const stages=['ARRIV\xC9E CLIENT','D\xC9MARRER LA COURSE','TERMINER LA COURSE'];let st=0;
-byId('btnDrive').onclick=e=>{st++;const b=e.currentTarget;if(st===1){b.textContent=stages[1];byId('dInfoLbl').textContent='DESTINATION';byId('dInfoVal').textContent=rd.destName;const svg=byId('polyDrive').parentNode;const p=svg.querySelector('#dTmp');p&&p.setAttribute('d',rd.riding);}else if(st===2){b.textContent=stages[2];}else{byId('doneModal').classList.remove('hidden');st=0;b.textContent=stages[0];}};
-byId('btnCash').onclick=()=>{byId('doneModal').classList.add('hidden');accepted=false;armed=false;const svg=byId('polyDrive').parentNode;svg.querySelector('#dTmp')?.remove();byId('dClient').style.display='none';byId('dInfo').style.display='none';byId('btnDrive').style.display='none';byId('dIdle').style.display='block';};
+byId('btnDrive').onclick=e=>{st++;const b=e.currentTarget;
+  if(st===1){b.textContent=stages[1];byId('dInfoLbl').textContent='DESTINATION';byId('dInfoVal').textContent='${INCOMING_REQUEST.destination.name}';
+    if(ok){const m2=[(PK[0]+DS[0])/2+0.008,(PK[1]+DS[1])/2+0.015];drawRoute(md,'d',[PK,m2,DS]);md.flyToBounds(L.polyline([PK,DS]).getBounds(),{padding:[50,80]});}
+    else{byId('routeDStatic').setAttribute('d',dstat.ridingStatic);}}
+  else if(st===2){b.textContent=stages[2];}
+  else{byId('doneModal').classList.remove('hidden');st=0;b.textContent=stages[0];}};
+byId('btnCash').onclick=()=>{byId('doneModal').classList.add('hidden');accepted=false;armed=false;
+  if(ok){if(routeD){routeD.remove();routeD=null;}}else{byId('routeDStatic').setAttribute('d','');}
+  byId('dClient').style.display='none';byId('dInfo').style.display='none';byId('btnDrive').style.display='none';byId('dIdle').style.display='block';};
 `;
 var html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Niger Royal \u2014 Preview fid\xE8le</title>
+<title>Niger Royal \u2014 Bamako</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>${CSS}</style>
 </head>
 <body>
 <div id="board">
 <div class="crown">\u{1F451}</div>
 <div class="brand">NIGER ROYAL</div>
-<div class="sub">PREVIEW FID\xC8LE \xB7 BAMAKO \u{1F1F2}\u{1F1F1}</div>
+<div class="sub">PREVIEW \xB7 BAMAKO \u{1F1F2}\u{1F1F1}</div>
 <div class="tabs"><button class="tab on" id="tabC">\u{1F4F1} App Client</button><button class="tab" id="tabD">\u{1F697} App Chauffeur</button></div>
 <div class="phone"><div class="notch"></div><div class="screen">${clientScreen()}${driverScreen()}</div></div>
 </div>
