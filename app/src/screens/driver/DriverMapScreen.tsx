@@ -141,7 +141,7 @@ export default function DriverMapScreen({ navigation }: Props) {
       </View>
 
       {/* 🧭 Bottom sheet */}
-      <View style={{ paddingBottom: insets.bottom + 6 }}>
+      <View style={{ paddingBottom: insets.bottom + 6, zIndex: 10 }}>
         <Sheet>
           {!request && (
             <View style={styles.offlineWrap}>

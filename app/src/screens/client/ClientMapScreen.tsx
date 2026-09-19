@@ -255,7 +255,7 @@ export default function ClientMapScreen({ navigation }: Props) {
       )}
 
       {/* 🧭 Bottom sheet */}
-      <View style={{ paddingBottom: insets.bottom + 6 }}>
+      <View style={{ paddingBottom: insets.bottom + 6, zIndex: 10 }}>
         <Sheet>
           {phase !== 'found' && (
             <>

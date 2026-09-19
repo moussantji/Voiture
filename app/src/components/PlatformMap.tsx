@@ -412,7 +412,18 @@ function LeafletWebMap({ children, style: _style, region, onPress }: any) {
   if (G.document) {
     return React.createElement('div', {
       ref: hostRef,
-      style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0B1E1A' },
+      // 🧱 z-index 0 + contexte d'empilement propre : les couches internes de
+      //    Leaflet (200+) restent confinées et ne passent JAMAIS au-dessus
+      //    des boutons/panneaux de l'app (qui viennent après dans le DOM)
+      style: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 0,
+        backgroundColor: '#0B1E1A',
+      },
     });
   }
   return <View style={styles.webMap} />;
