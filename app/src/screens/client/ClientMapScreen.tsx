@@ -219,15 +219,15 @@ export default function ClientMapScreen({ navigation }: Props) {
         onPress={onMapPress}
       >
         {cars.map((c) => (
-          <Marker key={c.id} coordinate={{ latitude: c.latitude, longitude: c.longitude }}>
+          <Marker key={c.id} variant="car" coordinate={{ latitude: c.latitude, longitude: c.longitude }}>
             <CarDot heading={c.heading} />
           </Marker>
         ))}
-        <Marker coordinate={userPos}>
+        <Marker variant="user" coordinate={userPos}>
           <UserPin anim={pulse} />
         </Marker>
         {dest && (
-          <Marker coordinate={{ latitude: dest.latitude, longitude: dest.longitude }}>
+          <Marker variant="dest" coordinate={{ latitude: dest.latitude, longitude: dest.longitude }}>
             <View style={{ transform: [{ translateY: -10 }] }}>
               <GoldFlagIcon size={24} />
             </View>

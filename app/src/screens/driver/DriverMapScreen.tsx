@@ -119,7 +119,7 @@ export default function DriverMapScreen({ navigation }: Props) {
     <View style={styles.root}>
       <MapView style={StyleSheet.absoluteFill} region={BAMAKO_REGION} customMapStyle={nigerRoyalMapStyle}>
         {/* 🚕 Ma voiture */}
-        <Marker coordinate={DRIVER_POSITION}>
+        <Marker variant="car" coordinate={DRIVER_POSITION}>
           <View style={styles.myCar}>
             <Text style={styles.myCarEmoji}>🚗</Text>
           </View>

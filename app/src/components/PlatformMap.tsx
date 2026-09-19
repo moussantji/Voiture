@@ -1,8 +1,8 @@
 // 🗺️ Carte multi-plateforme :
 // - iOS/Android → react-native-maps (Google Maps + style Niger Royal)
-// - Web (preview) → carte de Bamako dessinée « Niger Royal » (SVG or/émeraude),
-//   géometrie réelle approximative (fleuve, ponts, quartiers) → markers parfaitement alignés
-import React, { createContext, useContext, useState } from 'react';
+// - Web → VRAIE carte interactive Leaflet + tuiles Google Maps (mode sombre),
+//   repli auto : tuiles OSM/CARTO → carte dessinée Niger Royal (SVG) si hors-ligne
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import {
   ART_BOUNDS,
@@ -213,6 +213,203 @@ function WebPolyline({ coordinates = [], strokeColor = '#E3B94E', strokeWidth = 
 }
 
 function WebMap({ children, style, region, customMapStyle: _, onPress }: any) {
+  return <LeafletWebMap children={children} style={style} region={region} onPress={onPress} />;
+}
+
+// ---------- 🗺️ Vraie carte web : Leaflet + tuiles Google Maps (mode sombre) ----------
+const G: any = globalThis as any;
+let leafletPromise: Promise<any> | null = null;
+
+function loadLeaflet(): Promise<any> {
+  const d = G.document;
+  if (!d) return Promise.reject(new Error('no dom'));
+  if (G.L) return Promise.resolve(G.L);
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    if (!d.getElementById('nr-leaflet-css')) {
+      const l = d.createElement('link');
+      l.id = 'nr-leaflet-css';
+      l.rel = 'stylesheet';
+      l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      d.head.appendChild(l);
+    }
+    if (!d.getElementById('nr-leaflet-style')) {
+      const s = d.createElement('style');
+      s.id = 'nr-leaflet-style';
+      s.textContent =
+        '.nr-gdark .leaflet-tile-pane{filter:invert(100%) hue-rotate(180deg) saturate(.75) brightness(.92) contrast(1.04)}' +
+        '.nr-emerald .leaflet-tile-pane{filter:hue-rotate(118deg) saturate(.85) brightness(.93) contrast(1.05)}' +
+        '.leaflet-container{background:#0B1E1A;font-family:inherit;outline:none}' +
+        '.leaflet-control-attribution{background:rgba(13,42,34,.78)!important;color:rgba(216,210,192,.7)!important;font-size:8px!important;padding:2px 6px!important}' +
+        '.leaflet-control-attribution a{color:#9FD6D2!important}' +
+        'path.nr-route{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}' +
+        '@keyframes nrpulse{from{transform:scale(1);opacity:.55}to{transform:scale(2.4);opacity:0}}';
+      d.head.appendChild(s);
+    }
+    const sc = d.createElement('script');
+    sc.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    sc.onload = () => resolve(G.L);
+    sc.onerror = () => {
+      leafletPromise = null;
+      reject(new Error('leaflet cdn unreachable'));
+    };
+    d.head.appendChild(sc);
+  });
+  return leafletPromise;
+}
+
+// 🎨 Icônes Niger Royal (variant: car | user | dest | défaut=point or)
+function nrIcon(L: any, variant?: string) {
+  if (variant === 'user') {
+    return L.divIcon({
+      className: 'nr-mk',
+      html:
+        '<div style="position:relative;width:10px;height:10px">' +
+        '<i style="position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#E3B94E;opacity:.55;animation:nrpulse 1.6s ease-out infinite"></i>' +
+        '<b style="position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:#E3B94E;border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9)"></b></div>',
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    });
+  }
+  if (variant === 'dest') {
+    return L.divIcon({
+      className: 'nr-mk',
+      html: '<div style="font-size:26px">📍</div>',
+      iconSize: [26, 30],
+      iconAnchor: [13, 28],
+    });
+  }
+  if (variant === 'car') {
+    return L.divIcon({
+      className: 'nr-mk',
+      html:
+        '<div style="width:34px;height:34px;border-radius:50%;background:#E3B94E;border:2px solid #0B1E1A;' +
+        'display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px rgba(227,185,78,.75)">🚕</div>',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
+  }
+  return L.divIcon({
+    className: 'nr-mk',
+    html:
+      '<div style="width:16px;height:16px;border-radius:8px;background:#E3B94E;border:2px solid #0B1E1A;' +
+      'box-shadow:0 0 8px rgba(227,185,78,.6)"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+}
+
+function LeafletWebMap({ children, style: _style, region, onPress }: any) {
+  const hostRef = useRef<any>(null);
+  const mapRef = useRef<any>(null);
+  const LRef = useRef<any>(null);
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+  const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
+
+  // 🚀 Chargement de Leaflet + init de la carte (tuiles Google → repli OSM/CARTO)
+  useEffect(() => {
+    let alive = true;
+    loadLeaflet()
+      .then((L) => {
+        if (!alive || !hostRef.current) return;
+        LRef.current = L;
+        const map = L.map(hostRef.current, { zoomControl: false, attributionControl: true });
+        const cont = map.getContainer();
+        const google = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=fr', {
+          subdomains: '0123',
+          maxZoom: 20,
+          attribution: '© Google Maps',
+        });
+        let tileErrors = 0;
+        google.on('tileerror', () => {
+          tileErrors += 1;
+          if (tileErrors > 3) {
+            try {
+              map.removeLayer(google);
+            } catch {}
+            cont.classList.remove('nr-gdark');
+            cont.classList.add('nr-emerald');
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+              subdomains: 'abcd',
+              maxZoom: 19,
+              attribution: '© OpenStreetMap · © CARTO',
+            }).addTo(map);
+          }
+        });
+        google.addTo(map);
+        cont.classList.add('nr-gdark');
+        map.on('click', (e: any) =>
+          onPressRef.current?.({ latitude: e.latlng.lat, longitude: e.latlng.lng }),
+        );
+        mapRef.current = map;
+        if (alive) setState('ready');
+      })
+      .catch(() => {
+        if (alive) setState('fallback');
+      });
+    return () => {
+      alive = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  // 🎯 Centrage / zoom à partir de la région
+  useEffect(() => {
+    const map = mapRef.current;
+    if (state !== 'ready' || !map) return;
+    const zoom = Math.max(3, Math.min(18, Math.round(Math.log2(360 / region.latitudeDelta))));
+    map.setView([region.latitude, region.longitude], zoom, { animate: false });
+  }, [state, region.latitude, region.longitude, region.latitudeDelta]);
+
+  // 📍 Markers + 🛣️ itinéraires (consommés depuis les children RN-like)
+  useEffect(() => {
+    const map = mapRef.current;
+    const L = LRef.current;
+    if (state !== 'ready' || !map || !L) return;
+    const layers: any[] = [];
+    React.Children.forEach(children, (ch: any) => {
+      if (!React.isValidElement(ch)) return;
+      const p: any = ch.props;
+      if (p?.coordinate && ch.type === (WebMarker as any)) {
+        const mk = L.marker([p.coordinate.latitude, p.coordinate.longitude], {
+          icon: nrIcon(L, p.variant),
+        }).addTo(map);
+        layers.push(mk);
+      } else if (p?.coordinates && ch.type === (WebPolyline as any)) {
+        const pl = L.polyline(
+          p.coordinates.map((c: LatLng) => [c.latitude, c.longitude]),
+          { color: p.strokeColor || '#E3B94E', weight: p.strokeWidth || 4, className: 'nr-route' },
+        ).addTo(map);
+        layers.push(pl);
+      }
+    });
+    return () => {
+      layers.forEach((l) => {
+        try {
+          l.remove();
+        } catch {}
+      });
+    };
+  }, [state, children]);
+
+  if (state === 'fallback') {
+    return <SvgWebMap children={children} region={region} onPress={onPress} />;
+  }
+  if (G.document) {
+    return React.createElement('div', {
+      ref: hostRef,
+      style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0B1E1A' },
+    });
+  }
+  return <View style={styles.webMap} />;
+}
+
+// ---------- 🧯 Repli : carte dessinée Niger Royal (SVG) si la carte en ligne échoue ----------
+function SvgWebMap({ children, style: _style, region, onPress }: any) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const project = buildProjection(region, size.width || 1, size.height || 1);
   const handlePress = onPress
@@ -228,7 +425,7 @@ function WebMap({ children, style, region, customMapStyle: _, onPress }: any) {
     : undefined;
   return (
     <View
-      style={[styles.webMap, style]}
+      style={styles.webMap}
       onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
       onStartShouldSetResponder={handlePress ? () => true : undefined}
       onResponderGrant={handlePress}
