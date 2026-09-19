@@ -1,0 +1,380 @@
+// 🛠️ Génère app/web-preview/index.html — preview STATIQUE fidèle à la maquette
+// (HTML+CSS+SVG pur, interactif vanilla — aucun risque de plantage RN/Metro)
+// Usage : npx esbuild scripts/gen-preview.ts --bundle --platform=node --format=esm --outfile=scripts/.gen-preview.mjs && node scripts/.gen-preview.mjs
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import {
+  ART_BOUNDS, BRIDGES, CITY_LABEL, HIGHWAYS, RIVER_LABELS, RIVER_PATH,
+  buildArterials, buildLocalStreets, buildTexture, labeledQuartiers,
+} from '../src/components/mapArt';
+import {
+  BAMAKO_REGION, CARS, DRIVER_POSITION, INCOMING_REQUEST, QUARTIERS, USER_POSITION,
+  distanceKm, estimateDurationMin, estimatePrice, formatFCFA, LatLng,
+} from '../src/data/mock';
+
+const W = 402, H = 734; // zone écran du téléphone
+const R = BAMAKO_REGION;
+const proj = (p: LatLng) => ({
+  x: ((p.longitude - (R.longitude - R.longitudeDelta / 2)) / R.longitudeDelta) * W,
+  y: ((R.latitude + R.latitudeDelta / 2 - p.latitude) / R.latitudeDelta) * H,
+});
+
+const path = (pts: LatLng[]) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${proj(p).x.toFixed(1)} ${proj(p).y.toFixed(1)}`).join(' ');
+const qpath = (a: LatLng, b: LatLng, m: LatLng) => `M ${proj(a).x.toFixed(1)} ${proj(a).y.toFixed(1)} Q ${proj(m).x.toFixed(1)} ${proj(m).y.toFixed(1)} ${proj(b).x.toFixed(1)} ${proj(b).y.toFixed(1)}`;
+
+function mapSVG(): string {
+  const arterials = buildArterials();
+  const locals = buildLocalStreets();
+  const texture = buildTexture();
+  const riverD = RIVER_PATH.map((s, i) => {
+    const a = proj(s.start), c1 = proj(s.c1), c2 = proj(s.c2), e = proj(s.end);
+    return `${i === 0 ? `M ${a.x.toFixed(1)} ${a.y.toFixed(1)}` : ''} C ${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${e.x.toFixed(1)} ${e.y.toFixed(1)}`;
+  }).join(' ');
+  const pk = proj({ latitude: 12.633, longitude: -8.027 });
+  const pk2 = proj({ latitude: 12.6525, longitude: -7.9745 });
+  return `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="bg" cx="46%" cy="38%" r="95%">
+      <stop offset="0%" stop-color="#0E3B2D"/><stop offset="55%" stop-color="#0C2A21"/><stop offset="100%" stop-color="#0B1E1A"/>
+    </radialGradient>
+    <linearGradient id="river" x1="0%" y1="0%" x2="100%" y2="30%">
+      <stop offset="0%" stop-color="#1E8A8A"/><stop offset="55%" stop-color="#1D7C84"/><stop offset="100%" stop-color="#1E8A8A"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowRoute" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  ${texture.map(t => { const q = proj(t.c); return `<circle cx="${q.x.toFixed(0)}" cy="${q.y.toFixed(0)}" r="${t.r.toFixed(1)}" fill="#165B45" opacity="0.07"/>`; }).join('')}
+  <polygon points="${pk.x - 70},${pk.y - 30} ${pk.x + 40},${pk.y - 55} ${pk.x + 75},${pk.y + 25} ${pk.x - 20},${pk.y + 50}" fill="#103B2D" opacity="0.8"/>
+  <polygon points="${pk2.x - 45},${pk2.y - 25} ${pk2.x + 50},${pk2.y - 40} ${pk2.x + 60},${pk2.y + 30} ${pk2.x - 30},${pk2.y + 42}" fill="#103B2D" opacity="0.7"/>
+  <path d="${riverD}" stroke="#0E3B33" stroke-width="46" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <path d="${riverD}" stroke="url(#river)" stroke-width="34" stroke-linecap="round" fill="none" opacity="0.95"/>
+  ${locals.map(l => `<path d="${path(l)}" stroke="#14503F" stroke-width="1" fill="none" opacity="0.85"/>`).join('')}
+  ${arterials.map(l => `<path d="${path(l)}" stroke="#1A5B48" stroke-width="2.2" fill="none" stroke-linecap="round"/>`).join('')}
+  ${HIGHWAYS.map(l => `<path d="${path(l)}" stroke="#2A6B4F" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="${path(l)}" stroke="#3E8A6C" stroke-width="1.1" fill="none" opacity="0.5" stroke-linecap="round"/>`).join('')}
+  ${BRIDGES.map(b => `<path d="${path(b)}" stroke="#E3B94E" stroke-width="5" stroke-linecap="round" fill="none" filter="url(#glow)"/>${b.map(c => { const q = proj(c); return `<circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="3.4" fill="#E3B94E"/>`; }).join('')}`).join('')}
+</svg>`;
+}
+
+function labelsHTML(): string {
+  const city = proj(CITY_LABEL);
+  const qs = labeledQuartiers().map(q => {
+    const p = proj(q);
+    return `<span class="q" style="left:${p.x.toFixed(0)}px;top:${(p.y - 6).toFixed(0)}px">${q.name.toUpperCase()}</span>`;
+  }).join('');
+  const rivers = RIVER_LABELS.map(r => { const p = proj(r); return `<span class="river-lbl" style="left:${p.x.toFixed(0)}px;top:${(p.y - 6).toFixed(0)}px">Niger</span>`; }).join('');
+  return `${qs}<span class="city" style="left:${(city.x - 48).toFixed(0)}px;top:${city.y.toFixed(0)}px">Bamako</span>${rivers}`;
+}
+
+const clientRouteD = (() => {
+  const dest = QUARTIERS.find(q => q.name === 'ACI 2000')!;
+  const mid1: LatLng = { latitude: USER_POSITION.latitude + (dest.latitude - USER_POSITION.latitude) * 0.35 + 0.004, longitude: USER_POSITION.longitude + (dest.longitude - USER_POSITION.longitude) * 0.35 };
+  const mid2: LatLng = { latitude: USER_POSITION.latitude + (dest.latitude - USER_POSITION.latitude) * 0.7, longitude: USER_POSITION.longitude + (dest.longitude - USER_POSITION.longitude) * 0.7 + 0.003 };
+  return `M ${[USER_POSITION, mid1, mid2, { latitude: dest.latitude, longitude: dest.longitude }].map(p => `${proj(p).x.toFixed(1)} ${proj(p).y.toFixed(1)}`).join(' L ')}`;
+})();
+
+function clientScreen(): string {
+  const cars = CARS.map((c, i) => {
+    const p = proj(c);
+    return `<div class="car" style="left:${p.x.toFixed(0)}px;top:${p.y.toFixed(0)}px;transform:rotate(${c.heading}deg);animation-delay:${(i * 0.7) % 3}s"><span>🚕</span></div>`;
+  }).join('');
+  const user = proj(USER_POSITION);
+  const items = QUARTIERS.slice(0, 9).map(q => {
+    const km = distanceKm(USER_POSITION, q) * 1.35;
+    return `<div class="qi" data-name="${q.name}" data-km="${km.toFixed(1)}" data-price="${formatFCFA(estimatePrice(km))}" data-min="${estimateDurationMin(km)}" data-lat="${q.latitude}" data-lng="${q.longitude}">
+      <span class="qi-flag"></span>
+      <span class="qi-txt"><b>${q.name}</b><small>à ${km.toFixed(1)} km · ${formatFCFA(estimatePrice(km))}</small></span>
+      <span class="qi-chevr">›</span>
+    </div>`;
+  }).join('');
+  return `<div class="scr" id="screenClient">
+  ${mapSVG()}
+  ${labelsHTML()}
+  <div class="cars">${cars}</div>
+  <div class="user-pin" style="left:${user.x.toFixed(0)}px;top:${user.y.toFixed(0)}px"><i></i><b><u></u></b><s></s></div>
+  <div class="topbar">
+    <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
+    <span style="flex:1"></span>
+    <button class="fbtn" data-notif><span class="bell-i"></span><i class="rdot">2</i></button>
+  </div>
+  <svg class="route-svg" id="routeC" viewBox="0 0 ${W} ${H}"><polyline id="polyC" points="" fill="none" stroke="#E3B94E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowRoute)"/><text id="pinEnd" x="-50" y="-50" font-size="18" text-anchor="middle">📍</text></svg>
+  <div class="sheet" id="sheetC">
+    <div class="handle"></div>
+    <div id="cIdle">
+      <div class="field" id="destField">
+        <span class="flag-i"></span>
+        <span class="field-txt"><small>DESTINATION</small><b id="destVal">Où allez-vous ?</b></span>
+        <span class="chevr">›</span>
+      </div>
+      <div class="est" id="estRow" style="display:none">
+        <div class="inf"><small>DISTANCE</small><b id="estKm">—</b></div>
+        <div class="inf"><small>DURÉE</small><b id="estMin">—</b></div>
+        <div class="inf"><small>PRIX ESTIMÉ</small><b class="gold" id="estPrice">—</b></div>
+      </div>
+      <button class="gbtn" id="btnSearch" disabled>Rechercher une voiture</button>
+    </div>
+    <div id="cFound" style="display:none">
+      <div class="found-t">✓ Chauffeur trouvé</div>
+      <div class="crow">
+        <span class="avatar">👨🏾</span>
+        <span class="cinfo"><b>Mamadou K. ⭐ 4,9 (128)</b><small>Toyota Camry noire · ML 4521</small><small class="gold">Arrivée dans 3 min · <span id="foundPrice"></span></small></span>
+        <span class="callb">📞</span>
+      </div>
+      <button class="gbtn outline" id="btnCancel">Annuler la course</button>
+    </div>
+  </div>
+  <div class="popover" id="popover">
+    <div class="pop-card"><div class="handle"></div><div class="pop-title">Où allez-vous ?</div>${items}<button class="gbtn outline" id="popClose">Fermer</button></div>
+  </div>
+  <div class="attr">Carte stylisée · Niger Royal</div>
+</div>`;
+}
+
+function driverScreen(): string {
+  const me = proj(DRIVER_POSITION);
+  const req = INCOMING_REQUEST;
+  const mid1: LatLng = { latitude: (DRIVER_POSITION.latitude + req.pickup.latitude) / 2 + 0.01, longitude: (DRIVER_POSITION.longitude + req.pickup.longitude) / 2 + 0.012 };
+  const mid2: LatLng = { latitude: (req.pickup.latitude + req.destination.latitude) / 2 + 0.008, longitude: (req.pickup.longitude + req.destination.longitude) / 2 + 0.015 };
+  const dToClient = `M ${[DRIVER_POSITION, mid1, { latitude: req.pickup.latitude, longitude: req.pickup.longitude }].map(p => `${proj(p).x.toFixed(1)} ${proj(p).y.toFixed(1)}`).join(' L ')}`;
+  const dRiding = `M ${[{ latitude: req.pickup.latitude, longitude: req.pickup.longitude }, mid2, { latitude: req.destination.latitude, longitude: req.destination.longitude }].map(p => `${proj(p).x.toFixed(1)} ${proj(p).y.toFixed(1)}`).join(' L ')}`;
+  return `<div class="scr hidden" id="screenDriver">
+  ${mapSVG()}
+  ${labelsHTML()}
+  <svg class="route-svg" viewBox="0 0 ${W} ${H}">
+    <polyline id="polyDrive" points="" fill="none" stroke="#E3B94E" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glowRoute)"/>
+  </svg>
+  <div class="car big" style="left:${me.x.toFixed(0)}px;top:${me.y.toFixed(0)}px"><span>🚗</span></div>
+  <div class="topbar">
+    <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
+    <button class="pill" id="pill"><i class="pdot"></i>En service</button>
+    <button class="fbtn" data-notif><span class="bell-i"></span><i class="rdot">1</i></button>
+  </div>
+  <div class="sheet" id="sheetD">
+    <div class="handle"></div>
+    <div class="crow" id="dClient" style="display:none">
+      <span class="avatar">👩🏾</span>
+      <span class="cinfo"><b>${req.clientName}</b><small>⭐ ${req.clientRating} · Paiement cash</small></span>
+      <span class="callb">📞</span>
+    </div>
+    <div class="est" id="dInfo" style="display:none">
+      <div class="inf"><small id="dInfoLbl">DESTINATION</small><b id="dInfoVal">${req.destination.name}</b></div>
+      <div class="vsep"></div>
+      <div class="inf"><small>PRIX ESTIMÉ</small><b class="gold">${formatFCFA(req.price)}</b></div>
+    </div>
+    <button class="gbtn" id="btnDrive" style="display:none">ARRIVÉE CLIENT</button>
+    <div id="dIdle"><div class="idle"><div class="idle-i">📡</div><b>En attente de courses…</b><small>Restez dans les zones chaudes : ACI 2000, Hippodrome, Aéroport.</small></div></div>
+  </div>
+  <div class="overlay" id="reqModal">
+    <div class="req-card">
+      <div class="req-t">Nouvelle course !</div>
+      <div class="req-route">
+        <div class="rr"><span class="rdot-g"></span><span class="rr-t"><small>PRISE EN CHARGE</small><b>${req.pickup.name}</b></span><b class="gold-km">${req.distanceToClient} km</b></div>
+        <div class="rline"></div>
+        <div class="rr"><span class="flag-i"></span><span class="rr-t"><small>DESTINATION</small><b>${req.destination.name}</b></span></div>
+      </div>
+      <div class="req-price"><small>PRIX ESTIMÉ</small><b>${formatFCFA(req.price)}</b><span>👤 ${req.clientName} · ⭐ ${req.clientRating}</span></div>
+      <div class="cnt-track"><div class="cnt-fill" id="cntFill"></div></div>
+      <div class="cnt-t" id="cntLbl">15s pour accepter</div>
+      <div class="req-actions"><button class="gbtn outline" id="btnRefuse">Refuser</button><button class="gbtn" id="btnAccept">✓ Accepter</button></div>
+    </div>
+  </div>
+  <div class="overlay hidden" id="doneModal">
+    <div class="req-card">
+      <div class="done-i">🏁</div>
+      <div class="req-t">Course terminée !</div>
+      <div class="est">
+        <div class="inf"><small>DESTINATION</small><b>${req.destination.name}</b></div>
+        <div class="inf"><small>GAIN</small><b class="gold">${formatFCFA(req.price)}</b></div>
+      </div>
+      <div class="done-cash">💵 Confirmez le paiement cash avec le client</div>
+      <button class="gbtn" id="btnCash">Encaisser et continuer</button>
+    </div>
+  </div>
+  <div class="attr">Carte stylisée · Niger Royal</div>
+  <div class="hidden" id="routeData" data-toclient="${dToClient}" data-riding="${dRiding}" data-pickup-name="${req.pickup.name}" data-dest-name="${req.destination.name}"></div>
+</div>`;
+}
+
+const CSS = `
+:root{--bg:#0B1E1A;--pri:#0E5C46;--gold:#E3B94E;--sand:#EFE3CC;--info:#1E8A8A;--panel:#0D2A22;--panelL:#123B30;--border:rgba(227,185,78,.35);--txt:#F4EFE3;--mut:#9FB8AE;--ok:#2ECC71;--serif:Georgia,'Playfair Display','Times New Roman',serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;color:var(--txt);padding:18px 10px}
+.crown{font-size:26px;text-align:center}
+.brand{font-family:var(--serif);color:var(--gold);font-size:26px;letter-spacing:6px;text-align:center;margin-top:4px}
+.sub{color:var(--mut);font-size:11px;letter-spacing:2px;text-align:center;margin:5px 0 14px}
+.tabs{display:flex;gap:10px;margin-bottom:14px}
+.tab{background:var(--panel);border:1px solid var(--border);color:var(--mut);padding:10px 18px;border-radius:22px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
+.tab.on{background:var(--gold);color:#12251F;border-color:var(--gold)}
+.phone{width:402px;height:760px;max-width:96vw;border-radius:44px;border:2px solid rgba(227,185,78,.55);background:#0A1512;overflow:hidden;box-shadow:0 0 60px rgba(227,185,78,.22),0 30px 60px rgba(0,0,0,.6);position:relative}
+.notch{height:26px;display:flex;align-items:center;justify-content:center}
+.notch::after{content:'';width:110px;height:18px;border-radius:9px;background:#000}
+.screen{position:relative;height:calc(100% - 26px);overflow:hidden;border-radius:0 0 42px 42px}
+.scr{position:absolute;inset:0}
+.hidden{display:none!important}
+.map-svg{position:absolute;inset:0;width:100%;height:100%}
+.q{position:absolute;font-size:8.5px;letter-spacing:1.5px;color:#B8CCBE;opacity:.87;transform:translateX(-24px);text-shadow:0 1px 4px rgba(11,30,26,.9)}
+.city{position:absolute;font-family:var(--serif);font-size:26px;font-weight:700;letter-spacing:1.5px;color:#F4EFE3;text-shadow:0 2px 8px rgba(0,0,0,.65)}
+.river-lbl{position:absolute;font-family:var(--serif);font-style:italic;font-size:10px;color:#9FD6D2;transform:rotate(-7deg);text-shadow:0 1px 4px rgba(11,30,26,.9)}
+.car{position:absolute;width:34px;height:34px;border-radius:50%;background:var(--gold);border:2px solid #0B1E1A;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px rgba(227,185,78,.7);transform-origin:center;animation:float 3.2s ease-in-out infinite;z-index:3}
+.car span{transform:translateY(-1px)}
+.car.big{width:42px;height:42px;font-size:20px;z-index:3}
+@keyframes float{0%,100%{margin-top:0}50%{margin-top:-4px}}
+.user-pin{position:absolute;width:8px;height:8px;transform:translate(-50%,-50%);z-index:4}
+.user-pin i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--gold);opacity:.55;animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{to{transform:scale(2.3);opacity:0}}
+.user-pin b{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--gold);border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9);display:flex;align-items:center;justify-content:center}
+.user-pin u{width:8px;height:8px;border-radius:50%;background:#12251F;text-decoration:none}
+.user-pin s{position:absolute;left:50%;top:11px;width:3px;height:10px;margin-left:-1.5px;background:var(--gold);border-radius:2px;text-decoration:none}
+.topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:30}
+.fbtn{width:46px;height:46px;border-radius:50%;background:var(--panel);border:1px solid var(--border);box-shadow:0 4px 8px rgba(0,0,0,.35);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center}
+.menu-i{display:flex;flex-direction:column;gap:3.6px;justify-content:center}
+.menu-i i{display:block;width:17px;height:2.4px;border-radius:2px;background:var(--gold)}
+.menu-i i:nth-child(2){width:12px}
+.bell-i{position:relative;display:block;width:16px;height:16px}
+.bell-i::before{content:'';position:absolute;left:1.5px;top:2px;width:13px;height:11px;background:var(--gold);border-radius:7px 7px 0 0}
+.bell-i::after{content:'';position:absolute;left:-1px;top:13px;width:18px;height:3px;border-radius:2px;background:var(--gold)}
+.rdot{position:absolute;top:1px;right:1px;min-width:16px;height:16px;border-radius:9px;background:#E85D5D;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid var(--panel);font-style:normal}
+.pill{background:var(--panel);border:1px solid var(--border);border-radius:20px;color:var(--txt);font-size:14px;font-weight:700;padding:11px 18px;display:flex;align-items:center;gap:8px;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.35)}
+.pdot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.sheet{position:absolute;left:12px;right:12px;bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:24px;padding:12px 16px 16px;box-shadow:0 -6px 18px rgba(0,0,0,.4);z-index:20}
+.handle{width:44px;height:4px;border-radius:2px;background:rgba(227,185,78,.45);margin:0 auto 12px}
+.field{display:flex;align-items:center;gap:12px;background:var(--panelL);border:1px solid rgba(227,185,78,.22);border-radius:14px;padding:12px 14px;cursor:pointer}
+.field-txt{flex:1;display:flex;flex-direction:column}
+.field-txt small,.inf small{font-size:10px;letter-spacing:1.1px;color:var(--mut)}
+.field-txt b{font-size:16px;font-weight:800;margin-top:2px}
+.chevr{color:var(--gold);font-size:22px;font-weight:300}
+.flag-i{position:relative;display:inline-block;width:16px;height:16px}
+.flag-i::before{content:'';position:absolute;left:0;top:0;width:2px;height:16px;background:var(--gold);border-radius:1px}
+.flag-i::after{content:'';position:absolute;left:2px;top:0;border-top:4.5px solid transparent;border-bottom:4.5px solid transparent;border-left:9px solid var(--gold)}
+.est{display:flex;align-items:center;background:var(--panelL);border:1px solid rgba(227,185,78,.15);border-radius:14px;padding:9px 14px;margin-top:11px}
+.inf{flex:1;display:flex;flex-direction:column;gap:3px}
+.inf b{font-size:15px;font-weight:800}
+.gold{color:var(--gold)}
+.vsep{width:1px;height:34px;background:var(--border);margin:0 12px}
+.gbtn{width:100%;margin-top:11px;background:var(--gold);color:#12251F;border:1.5px solid var(--gold);border-radius:14px;padding:15px;font-size:16.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;transition:.15s}
+.gbtn:hover{filter:brightness(1.06)}
+.gbtn:disabled{opacity:.45;cursor:not-allowed}
+.gbtn.outline{background:transparent;color:var(--gold)}
+.found-t{color:var(--ok);font-weight:800;font-size:15px;margin-bottom:10px}
+.crow{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.avatar{width:50px;height:50px;border-radius:50%;background:var(--pri);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px}
+.cinfo{flex:1;display:flex;flex-direction:column;gap:3px}
+.cinfo b{font-size:16px;font-weight:800}
+.cinfo small{color:var(--mut);font-size:12px}
+.cinfo small.gold{color:var(--gold);font-weight:700}
+.callb{width:46px;height:46px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer}
+.popover{position:absolute;inset:0;background:rgba(5,14,12,.72);display:none;align-items:flex-end;z-index:40}
+.popover.open{display:flex}
+.pop-card{width:100%;background:var(--panel);border-top:1px solid var(--border);border-radius:26px 26px 0 0;padding:12px 18px 18px;max-height:74%;overflow:auto}
+.pop-title{font-family:var(--serif);color:var(--gold);font-size:20px;font-weight:700;margin-bottom:8px}
+.qi{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid rgba(227,185,78,.1);cursor:pointer}
+.qi:hover{background:rgba(227,185,78,.06)}
+.qi-flag{width:30px;height:30px;border-radius:50%;background:var(--panelL);border:1px solid rgba(227,185,78,.3);position:relative;flex-shrink:0}
+.qi-flag::before{content:'';position:absolute;left:8px;top:8px;width:1.6px;height:14px;background:var(--gold)}
+.qi-flag::after{content:'';position:absolute;left:9.6px;top:8px;border-top:3.6px solid transparent;border-bottom:3.6px solid transparent;border-left:7.5px solid var(--gold)}
+.qi-txt{flex:1;display:flex;flex-direction:column;gap:2px}
+.qi-txt b{font-size:15px;font-weight:700}
+.qi-txt small{color:var(--mut);font-size:11px}
+.qi-chevr{color:var(--gold);font-size:20px}
+.idle{text-align:center;padding:14px 8px}
+.idle-i{font-size:32px}
+.idle b{display:block;font-size:16.5px;font-weight:800;margin-top:8px}
+.idle small{display:block;color:var(--mut);font-size:12.5px;margin-top:6px;line-height:1.5}
+.overlay{position:absolute;inset:0;background:rgba(5,14,12,.72);display:flex;align-items:flex-end;z-index:50;padding:14px 14px 24px}
+.req-card{width:100%;background:var(--panel);border:1.5px solid var(--gold);border-radius:24px;padding:20px}
+.req-t{font-family:var(--serif);color:var(--txt);font-size:21px;font-weight:700;text-align:center}
+.req-route{background:var(--panelL);border-radius:16px;padding:14px;margin-top:14px}
+.rr{display:flex;align-items:center;gap:11px}
+.rr-t{flex:1;display:flex;flex-direction:column;gap:2px}
+.rr-t small{font-size:9.5px;letter-spacing:1px;color:var(--mut)}
+.rr-t b{font-size:16px;font-weight:800}
+.rdot-g{width:10px;height:10px;border-radius:50%;background:var(--gold);margin:0 3px}
+.rline{width:2px;height:16px;background:var(--border);margin:3px 0 3px 29px}
+.gold-km{color:var(--gold);font-size:12px}
+.req-price{text-align:center;margin-top:16px;display:flex;flex-direction:column;gap:3px}
+.req-price small{font-size:10.5px;letter-spacing:1px;color:var(--mut)}
+.req-price b{font-family:var(--serif);color:var(--gold);font-size:33px;font-weight:700}
+.req-price span{color:var(--mut);font-size:12px}
+.cnt-track{height:5px;border-radius:3px;background:var(--panelL);margin-top:16px;overflow:hidden}
+.cnt-fill{height:5px;background:var(--gold);border-radius:3px;width:100%;transition:width 1s linear}
+.cnt-t{color:var(--mut);font-size:11px;text-align:center;margin:7px 0 14px}
+.req-actions{display:flex;gap:12px}
+.done-i{font-size:42px;text-align:center}
+.done-cash{color:var(--mut);font-size:13px;text-align:center;margin:12px 0 6px}
+.attr{position:absolute;left:10px;bottom:6px;color:rgba(216,210,192,.42);font-size:8.5px;letter-spacing:.4px;z-index:10}
+.route-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;}
+@media(max-width:440px){.phone{width:100vw;height:100vh;max-height:none;border-radius:0;border:none}.brand,.sub,.crown,.tabs{padding:0}}
+`;
+
+const JS = `
+const W=${W},H=${H};
+const R={latitude:${R.latitude},longitude:${R.longitude},latitudeDelta:${R.latitudeDelta},longitudeDelta:${R.longitudeDelta}};
+const proj=p=>({x:((p.longitude-(R.longitude-R.longitudeDelta/2))/R.longitudeDelta)*W,y:((R.latitude+R.latitudeDelta/2-p.latitude)/R.latitudeDelta)*H});
+const U={latitude:${USER_POSITION.latitude},longitude:${USER_POSITION.longitude}};
+const byId=id=>document.getElementById(id);
+document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>alert('Menu ☰ (démo)'));
+document.querySelectorAll('[data-notif]').forEach(b=>b.onclick=()=>alert('🔔 2 notifications (démo)'));
+// onglets
+const tabC=byId('tabC'),tabD=byId('tabD');
+function show(name){byId('screenClient').classList.toggle('hidden',name!=='c');byId('screenDriver').classList.toggle('hidden',name!=='d');tabC.classList.toggle('on',name==='c');tabD.classList.toggle('on',name==='d');if(name==='d')armRequest();}
+tabC.onclick=()=>show('c');tabD.onclick=()=>show('d');
+// ---- CLIENT ----
+byId('destField').onclick=()=>byId('popover').classList.add('open');
+byId('popClose').onclick=()=>byId('popover').classList.remove('open');
+document.querySelectorAll('.qi').forEach(it=>it.onclick=()=>{
+  byId('destVal').textContent=it.dataset.name;
+  byId('estRow').style.display='flex';
+  byId('estKm').textContent=it.dataset.km+' km';
+  byId('estMin').textContent='~'+it.dataset.min+' min';
+  byId('estPrice').textContent=it.dataset.price;
+  byId('btnSearch').disabled=false;
+  const dest={latitude:+it.dataset.lat,longitude:+it.dataset.lng};
+  const m1={latitude:U.latitude+(dest.latitude-U.latitude)*0.35+0.004,longitude:U.longitude+(dest.longitude-U.longitude)*0.35};
+  const m2={latitude:U.latitude+(dest.latitude-U.latitude)*0.7,longitude:U.longitude+(dest.longitude-U.longitude)*0.7+0.003};
+  const pts=[U,m1,m2,dest].map(proj);
+  byId('polyC').setAttribute('points',pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '));
+  const last=pts[3];byId('pinEnd').setAttribute('x',last.x);byId('pinEnd').setAttribute('y',last.y-8);
+  byId('popover').classList.remove('open');
+});
+byId('btnSearch').onclick=e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Recherche d’un chauffeur…';setTimeout(()=>{byId('cIdle').style.display='none';byId('foundPrice').textContent=byId('estPrice').textContent;byId('cFound').style.display='block';},1600);};
+byId('btnCancel').onclick=()=>{byId('cFound').style.display='none';byId('cIdle').style.display='block';const b=byId('btnSearch');b.disabled=false;b.textContent='Rechercher une voiture';};
+// ---- CHAUFFEUR ----
+const rd=JSON.parse(JSON.stringify(byId('routeData').dataset));
+let armed=false,accepted=false,timer=null;
+function armRequest(){if(armed||accepted)return;armed=true;setTimeout(()=>{if(!accepted){showReq();}},1200);}
+function showReq(){byId('reqModal').classList.remove('hidden');let s=15;const fill=byId('cntFill');fill.style.width='100%';byId('cntLbl').textContent=s+'s pour accepter';timer=setInterval(()=>{s--;fill.style.width=(s/15*100)+'%';byId('cntLbl').textContent=s+'s pour accepter';if(s<=0){clearInterval(timer);byId('reqModal').classList.add('hidden');}},1000);}
+function stopTimer(){if(timer)clearInterval(timer);}
+byId('btnRefuse').onclick=()=>{stopTimer();byId('reqModal').classList.add('hidden');};
+byId('btnAccept').onclick=()=>{stopTimer();accepted=true;byId('reqModal').classList.add('hidden');byId('dIdle').style.display='none';byId('dClient').style.display='flex';byId('dInfo').style.display='flex';byId('dInfoLbl').textContent='PRISE EN CHARGE';byId('dInfoVal').textContent=rd.pickupName;byId('btnDrive').style.display='block';polyToClient();};
+function polyToClient(){byId('polyDrive').setAttribute('points','');const svg=byId('polyDrive').parentNode;svg.querySelector('#dTmp')?.remove();const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',rd.toclient);p.setAttribute('stroke','#E3B94E');p.setAttribute('stroke-width','4.5');p.setAttribute('fill','none');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.setAttribute('filter','url(#glowRoute)');p.id='dTmp';svg.appendChild(p);}
+const stages=['ARRIVÉE CLIENT','DÉMARRER LA COURSE','TERMINER LA COURSE'];let st=0;
+byId('btnDrive').onclick=e=>{st++;const b=e.currentTarget;if(st===1){b.textContent=stages[1];byId('dInfoLbl').textContent='DESTINATION';byId('dInfoVal').textContent=rd.destName;const svg=byId('polyDrive').parentNode;const p=svg.querySelector('#dTmp');p&&p.setAttribute('d',rd.riding);}else if(st===2){b.textContent=stages[2];}else{byId('doneModal').classList.remove('hidden');st=0;b.textContent=stages[0];}};
+byId('btnCash').onclick=()=>{byId('doneModal').classList.add('hidden');accepted=false;armed=false;const svg=byId('polyDrive').parentNode;svg.querySelector('#dTmp')?.remove();byId('dClient').style.display='none';byId('dInfo').style.display='none';byId('btnDrive').style.display='none';byId('dIdle').style.display='block';};
+`;
+
+const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Niger Royal — Preview fidèle</title>
+<style>${CSS}</style>
+</head>
+<body>
+<div class="crown">👑</div>
+<div class="brand">NIGER ROYAL</div>
+<div class="sub">PREVIEW FIDÈLE · BAMAKO 🇲🇱</div>
+<div class="tabs"><button class="tab on" id="tabC">📱 App Client</button><button class="tab" id="tabD">🚗 App Chauffeur</button></div>
+<div class="phone"><div class="notch"></div><div class="screen">${clientScreen()}${driverScreen()}</div></div>
+<script>${JS}</script>
+</body>
+</html>`;
+
+const out = join(process.cwd(), 'web-preview');
+mkdirSync(out, { recursive: true });
+writeFileSync(join(out, 'index.html'), html);
+console.log('✅ web-preview/index.html généré (' + (html.length / 1024).toFixed(1) + ' Ko)');
