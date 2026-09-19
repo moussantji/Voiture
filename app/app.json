@@ -5,39 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B1E1A",
-    "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0B1E1A"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      }
-    },
-    "android": {
-      "package": "com.nigerroyal.app",
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-        }
-      }
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "single"
-    },
-    "plugins": [
-      "@maplibre/maplibre-react-native",
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Niger Royal a besoin de votre position pour trouver des voitures autour de vous à Bamako."
-        }
-      ]
-    ]
+    "backgroundColor": "#0B1E1A"
   }
 }
