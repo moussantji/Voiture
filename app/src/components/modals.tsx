@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import { NOTIFICATIONS } from '../data/mock';
 
 // ---------- ☰ Menu latéral flottant ----------
@@ -116,10 +117,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.accent,
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 3,
     marginTop: 6,
-  },
+    fontFamily: fonts.display,
+  } as any,
   role: { textAlign: 'center', color: colors.textMuted, fontSize: 12, marginTop: 4, letterSpacing: 1 },
   divider: { height: 1, backgroundColor: colors.panelBorder, marginVertical: 18 },
   menuItem: {

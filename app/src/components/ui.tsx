@@ -48,16 +48,18 @@ export function GoldButton({
 // ---------- Icône flottante (☰ / 🔔) ----------
 export function FloatingIcon({
   icon,
+  children,
   onPress,
   badge,
 }: {
-  icon: string;
+  icon?: string;
+  children?: React.ReactNode;
   onPress?: () => void;
   badge?: number;
 }) {
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.floatingIcon}>
-      <Text style={styles.floatingIconText}>{icon}</Text>
+      {children ?? <Text style={styles.floatingIconText}>{icon}</Text>}
       {!!badge && badge > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{badge}</Text>
@@ -95,7 +97,7 @@ export function FieldRow({
   placeholder,
   onPress,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value?: string;
   placeholder: string;
@@ -103,7 +105,7 @@ export function FieldRow({
 }) {
   return (
     <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.fieldRow}>
-      <Text style={styles.fieldIcon}>{icon}</Text>
+      <View style={{ marginRight: 12 }}>{icon}</View>
       <View style={{ flex: 1 }}>
         <Text style={styles.fieldLabel}>{label}</Text>
         <Text style={[styles.fieldValue, !value && { color: colors.textMuted }]} numberOfLines={1}>

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/fonts';
 import { TRIP_HISTORY, formatFCFA } from '../../data/mock';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientHistory'>;
@@ -55,7 +56,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backIcon: { color: colors.accent, fontSize: 24, marginTop: -2 },
-  title: { flex: 1, textAlign: 'center', color: colors.accent, fontSize: 19, fontWeight: '800', letterSpacing: 1 },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 1,
+    fontFamily: fonts.display,
+  } as any,
   list: { padding: 16, gap: 12 },
   card: {
     flexDirection: 'row',

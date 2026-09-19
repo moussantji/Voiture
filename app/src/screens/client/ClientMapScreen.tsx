@@ -24,6 +24,8 @@ import {
   Sheet,
 } from '../../components/ui';
 import { NotificationsPanel, SideMenu } from '../../components/modals';
+import { GoldBellIcon, GoldFlagIcon, GoldMenuIcon } from '../../components/goldIcons';
+import { fonts } from '../../theme/fonts';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import {
   BAMAKO_REGION,
@@ -150,9 +152,13 @@ export default function ClientMapScreen({ navigation }: Props) {
 
       {/* ☰ 🔔 Icônes flottantes (pas de barre / pas de titre) */}
       <View style={[styles.topBar, { top: insets.top + 12 }]}>
-        <FloatingIcon icon="☰" onPress={() => setMenuVisible(true)} />
+        <FloatingIcon onPress={() => setMenuVisible(true)}>
+          <GoldMenuIcon />
+        </FloatingIcon>
         <View style={{ flex: 1 }} />
-        <FloatingIcon icon="🔔" badge={2} onPress={() => setNotifVisible(true)} />
+        <FloatingIcon badge={2} onPress={() => setNotifVisible(true)}>
+          <GoldBellIcon />
+        </FloatingIcon>
       </View>
 
       {/* 🧭 Bottom sheet */}
@@ -161,7 +167,7 @@ export default function ClientMapScreen({ navigation }: Props) {
           {phase !== 'found' && (
             <>
               <FieldRow
-                icon="⚑"
+                icon={<GoldFlagIcon size={18} />}
                 label="Destination"
                 value={destination?.name}
                 placeholder="Où allez-vous ?"
@@ -186,13 +192,13 @@ export default function ClientMapScreen({ navigation }: Props) {
 
           {phase === 'found' && (
             <View>
-              <Text style={styles.foundTitle}>✅ Chauffeur trouvé !</Text>
+              <Text style={styles.foundTitle}>✓ Chauffeur trouvé</Text>
               <View style={styles.driverRow}>
                 <Avatar emoji="👨🏾" size={52} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.driverName}>Mamadou K. ⭐ 4,9 (128)</Text>
                   <Text style={styles.driverCar}>Toyota Camry noire · ML 4521</Text>
-                  <Text style={styles.driverEta}>🕒 Arrivée dans 3 min · {formatFCFA(price)}</Text>
+                  <Text style={styles.driverEta}>Arrivée dans 3 min · {formatFCFA(price)}</Text>
                 </View>
                 <TouchableOpacity style={styles.callBtn} activeOpacity={0.85}>
                   <Text style={styles.callIcon}>📞</Text>
@@ -210,7 +216,7 @@ export default function ClientMapScreen({ navigation }: Props) {
         <View style={styles.pickerBackdrop}>
           <View style={[styles.pickerCard, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.pickerTitle}>📍 Où allez-vous ?</Text>
+            <Text style={styles.pickerTitle}>Où allez-vous ?</Text>
             <ScrollView bounces={false} style={{ maxHeight: 420 }}>
               {QUARTIERS.map((q) => {
                 const d = distanceKm(userPos, q) * 1.35;
@@ -225,7 +231,9 @@ export default function ClientMapScreen({ navigation }: Props) {
                       setPhase('idle');
                     }}
                   >
-                    <Text style={styles.pickerIcon}>⚑</Text>
+                    <View style={styles.pickerIconWrap}>
+                      <GoldFlagIcon size={14} />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.pickerName}>{q.name}</Text>
                       <Text style={styles.pickerDist}>à {d.toFixed(1)} km · {formatFCFA(estimatePrice(d))}</Text>
@@ -356,7 +364,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(227,185,78,0.45)',
     marginBottom: 12,
   },
-  pickerTitle: { color: colors.accent, fontSize: 18, fontWeight: '800', marginBottom: 10 },
+  pickerTitle: {
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+    fontFamily: fonts.display,
+    letterSpacing: 0.4,
+  } as any,
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,7 +379,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(227,185,78,0.1)',
   },
-  pickerIcon: { fontSize: 15, color: colors.accent, width: 30 },
+  pickerIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.panelLight,
+    borderWidth: 1,
+    borderColor: 'rgba(227,185,78,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   pickerName: { color: colors.text, fontSize: 15, fontWeight: '700' },
   pickerDist: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   chevr: { color: colors.accent, fontSize: 20 },

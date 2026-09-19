@@ -9,6 +9,8 @@ import { nigerRoyalMapStyle } from '../../theme/mapStyle';
 import { colors } from '../../theme/colors';
 import { Avatar, FloatingIcon, GoldButton, InfoBlock, Sheet, StatusPill } from '../../components/ui';
 import { NotificationsPanel, SideMenu } from '../../components/modals';
+import { GoldBellIcon, GoldFlagIcon, GoldMenuIcon, StatusDot } from '../../components/goldIcons';
+import { fonts } from '../../theme/fonts';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import {
   BAMAKO_REGION,
@@ -127,11 +129,15 @@ export default function DriverMapScreen({ navigation }: Props) {
 
       {/* ☰ ●En service 🔔 — icônes flottantes */}
       <View style={[styles.topBar, { top: insets.top + 12 }]}>
-        <FloatingIcon icon="☰" onPress={() => setMenuVisible(true)} />
+        <FloatingIcon onPress={() => setMenuVisible(true)}>
+          <GoldMenuIcon />
+        </FloatingIcon>
         <View style={styles.pillWrap}>
           <StatusPill online={online} onPress={() => setOnline(!online)} />
         </View>
-        <FloatingIcon icon="🔔" badge={1} onPress={() => setNotifVisible(true)} />
+        <FloatingIcon badge={1} onPress={() => setNotifVisible(true)}>
+          <GoldBellIcon />
+        </FloatingIcon>
       </View>
 
       {/* 🧭 Bottom sheet */}
@@ -191,7 +197,9 @@ export default function DriverMapScreen({ navigation }: Props) {
 
             <View style={styles.reqRoute}>
               <View style={styles.reqRouteRow}>
-                <Text style={styles.reqDot}>●</Text>
+                <View style={styles.reqIconWrap}>
+                  <StatusDot color={colors.accent} size={10} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.reqLabel}>Prise en charge</Text>
                   <Text style={styles.reqValue}>{request?.pickup.name}</Text>
@@ -200,7 +208,9 @@ export default function DriverMapScreen({ navigation }: Props) {
               </View>
               <View style={styles.reqLine} />
               <View style={styles.reqRouteRow}>
-                <Text style={styles.reqFlag}>⚑</Text>
+                <View style={styles.reqIconWrap}>
+                  <GoldFlagIcon size={15} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.reqLabel}>Destination</Text>
                   <Text style={styles.reqValue}>{request?.destination.name}</Text>
@@ -343,15 +353,20 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   reqRouteRow: { flexDirection: 'row', alignItems: 'center' },
-  reqDot: { color: colors.accent, fontSize: 12, width: 26 },
-  reqFlag: { color: colors.accent, fontSize: 14, width: 26 },
+  reqIconWrap: { width: 26, alignItems: 'center' },
   reqLabel: { color: colors.textMuted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
   reqValue: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 2 },
   reqKm: { color: colors.accent, fontSize: 12, fontWeight: '700' },
   reqLine: { height: 16, width: 2, backgroundColor: colors.panelBorder, marginLeft: 31, marginVertical: 3 },
   reqPriceWrap: { alignItems: 'center', marginTop: 16 },
   reqPriceLabel: { color: colors.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
-  reqPrice: { color: colors.accent, fontSize: 32, fontWeight: '800', marginTop: 2 },
+  reqPrice: {
+    color: colors.accent,
+    fontSize: 34,
+    fontWeight: '700',
+    marginTop: 2,
+    fontFamily: fonts.display,
+  } as any,
   reqClient: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
   countdownTrack: {
     height: 5,

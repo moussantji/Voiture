@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/fonts';
 import { DRIVER_TODAY, formatFCFA } from '../../data/mock';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DriverEarnings'>;
@@ -76,7 +77,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backIcon: { color: colors.accent, fontSize: 24, marginTop: -2 },
-  title: { flex: 1, textAlign: 'center', color: colors.accent, fontSize: 19, fontWeight: '800', letterSpacing: 1 },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: 1,
+    fontFamily: fonts.display,
+  } as any,
   content: { padding: 16, gap: 14 },
   todayLabel: { color: colors.textMuted, fontSize: 11, letterSpacing: 2, textAlign: 'center' },
   totalCard: {
@@ -87,7 +96,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.accent,
   },
-  total: { color: colors.accent, fontSize: 38, fontWeight: '800' },
+  total: { color: colors.accent, fontSize: 38, fontWeight: '700', fontFamily: fonts.display } as any,
   totalSub: { color: colors.textMuted, fontSize: 13, marginTop: 6 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   statCard: {

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import RootNavigator from './src/navigation/RootNavigator';
 import { colors } from './src/theme/colors';
+import { fonts } from './src/theme/fonts';
 
 const navTheme = {
   ...DefaultTheme,
@@ -67,11 +68,12 @@ const frameStyles = StyleSheet.create({
   crown: { fontSize: 26 },
   brand: {
     color: colors.accent,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
     letterSpacing: 5,
     marginTop: 6,
-  },
+    fontFamily: fonts.display,
+  } as any,
   sub: { color: colors.textMuted, fontSize: 11, letterSpacing: 2, marginTop: 4, marginBottom: 14 },
   phone: {
     width: '100%',

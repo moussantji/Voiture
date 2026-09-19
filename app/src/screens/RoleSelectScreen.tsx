@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RoleSelect'>;
 
@@ -66,10 +67,11 @@ const styles = StyleSheet.create({
   brand: {
     color: colors.accent,
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 6,
     marginTop: 14,
-  },
+    fontFamily: fonts.display,
+  } as any,
   rule: {
     width: 120,
     height: 1,
