@@ -26,7 +26,8 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 /* ---- Leaflet ---- */
 .leaflet-host{position:absolute;inset:0;z-index:1;display:none;background:#0B1E1A}
 .leaflet-container{background:#0B1E1A;font-family:inherit;outline:none}
-.leaflet-tile-pane{filter:hue-rotate(118deg) saturate(.85) brightness(.93) contrast(1.05)}
+.leaflet-container.gdark .leaflet-tile-pane{filter:invert(100%) hue-rotate(180deg) saturate(.75) brightness(.92) contrast(1.04)}
+.leaflet-container.emerald .leaflet-tile-pane{filter:hue-rotate(118deg) saturate(.85) brightness(.93) contrast(1.05)}
 .leaflet-control-attribution{background:rgba(13,42,34,.75)!important;color:rgba(216,210,192,.7)!important;font-size:8px!important;padding:2px 6px!important}
 .leaflet-control-attribution a{color:#9FD6D2!important}
 path.glowRoute{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}
@@ -323,9 +324,20 @@ let mc=null,md=null,routeC=null,routeD=null,cars=[],tileErr={c:0,d:0};
 function mkMap(el,which){
   const host=byId(el);host.style.display='block';
   const map=L.map(el,{zoomControl:false,attributionControl:true,center:U,zoom:12.6,scrollWheelZoom:true,doubleClickZoom:true});
+  const cont=map.getContainer();
+  // 🗺️ VRAIES tuiles Google Maps (français) rendues en mode sombre — preview de démo.
+  //    Repli auto : tuiles Google → CARTO dark (OSM) → carte SVG.
+  const g=L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=fr',{attribution:'© Google Maps · données © Google / OSM',maxZoom:20,subdomains:'0123'});
+  let gErr=0;
+  g.on('tileerror',function(){gErr++;if(gErr>3){try{map.removeLayer(g);}catch(e){}cont.classList.remove('gdark');addCarto(map,cont,host,which);}});
+  g.addTo(map);cont.classList.add('gdark');
+  return map;
+}
+function addCarto(map,cont,host,which){
+  cont.classList.add('emerald');
   const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap · © CARTO',maxZoom:19,subdomains:'abcd'});
-  tiles.on('tileerror',()=>{tileErr[which]++;if(tileErr[which]>6){fallback(which=== 'c'?'staticC':'staticD',host);}});
-  tiles.addTo(map);return map;
+  tiles.on('tileerror',function(){tileErr[which]++;if(tileErr[which]>6){fallback(which==='c'?'staticC':'staticD',host);}});
+  tiles.addTo(map);
 }
 function fallback(staticId,host){const s=byId(staticId);hostsDel(host);s&&s.classList.add('show');}
 function hostsDel(h){try{h.style.display='none'}catch(e){}}

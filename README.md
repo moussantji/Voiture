@@ -14,8 +14,8 @@ npm start          # puis : a (Android) · i (iOS) · w (web)
 Le fournisseur de carte se change dans **`app/src/config/maps.ts`** :
 | `MAP_PROVIDER` | Coût | Clé requise |
 |---|---|---|
-| `'maplibre'` (défaut) — OpenStreetMap/CARTO, style Niger Royal appliqué | **0 F à vie** | ❌ aucune |
-| `'google'` — Google Maps natif + style Niger Royal perso | 0 F (illimité) | ✅ clé dans `app/app.json` |
+| `'google'` (défaut) — **Google Maps natif** (react-native-maps) + style sombre Niger Royal. **Expo Go Android : fonctionne SANS clé** (clé interne d'Expo). APK prod : clé Google Cloud (cartes natives non facturées) | 0 F | ✅ clé dans `app/app.json` (prod uniquement) |
+| `'maplibre'` — OpenStreetMap/CARTO, style Niger Royal | **0 F à vie, sans CB** | ❌ aucune (mais dev build requis, pas Expo Go) |
 
 > ⚠️ MapLibre est un module natif → il faut un **dev build** (pas Expo Go) :
 > `npx expo prebuild && npx expo run:android` (ou `npx expo run:ios`).
