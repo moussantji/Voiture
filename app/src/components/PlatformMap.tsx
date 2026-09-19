@@ -137,7 +137,7 @@ function WebLabels({ region, width, height }: { region: Region; width: number; h
   const proj = buildProjection(region, width, height);
   const city = proj(CITY_LABEL);
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 2 }]}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 2, pointerEvents: 'none' } as any]}>
       {labeledQuartiers().map((q) => {
         const qm = proj(q);
         return (
