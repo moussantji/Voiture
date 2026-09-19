@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,6 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MapView, { Marker, Polyline } from '../../components/PlatformMap';
 import { nigerRoyalMapStyle } from '../../theme/mapStyle';
 import { colors } from '../../theme/colors';
+import { fetchRoute, reverseName, searchPlaces, type GeoResult, type RouteInfo } from '../../services/geo';
 import {
   Avatar,
   FieldRow,
@@ -80,6 +82,11 @@ export default function ClientMapScreen({ navigation }: Props) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [notifVisible, setNotifVisible] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
+  // 🔍 Recherche Nominatim (gratuit) + 🛣️ itinéraire réel OSRM (gratuit)
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<GeoResult[]>([]);
+  const [routeReal, setRouteReal] = useState<RouteInfo | null>(null);
+  const queryRef = useRef(0);
 
   const pulse = useRef(new Animated.Value(0)).current;
 
@@ -137,14 +144,47 @@ export default function ClientMapScreen({ navigation }: Props) {
       latitude: c.latitude,
       longitude: c.longitude,
     });
+    // 🌍 Nom réel du lieu via Nominatim reverse (gratuit, asynchrone)
+    reverseName(c.latitude, c.longitude).then((n) => {
+      if (n) setDestCustom((prev) => (prev ? { ...prev, name: `📍 ${n}` } : prev));
+    });
   };
 
-  const km = dest ? distanceKm(userPos, dest) * 1.35 : 0; // ×1.35 trajet routier
-  const price = estimatePrice(km);
-  const duration = estimateDurationMin(km);
+  // 🛣️ Dès qu'une destination est posée → itinéraire RÉEL qui suit les rues (OSRM, gratuit)
+  useEffect(() => {
+    setRouteReal(null);
+    if (!dest) return;
+    let alive = true;
+    fetchRoute(userPos, dest).then((r) => {
+      if (alive && r) setRouteReal(r);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [dest, userPos]);
 
-  // Itinéraire doré (courbe légère)
-  const route = useMemo(() => {
+  // 🔍 Recherche de lieux (Nominatim) avec petit délai (fair-use : ~1 req/s)
+  useEffect(() => {
+    const id = ++queryRef.current;
+    const q = query.trim();
+    if (q.length < 3) {
+      setResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const r = await searchPlaces(q, userPos);
+      if (queryRef.current === id) setResults(r);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [query, userPos]);
+
+  // Distance/durée : réelles (OSRM) si dispo, sinon estimation locale ×1.35
+  const km = routeReal?.km ?? (dest ? distanceKm(userPos, dest) * 1.35 : 0);
+  const price = estimatePrice(km);
+  const duration = routeReal?.min ?? estimateDurationMin(km);
+
+  // Itinéraire de secours (courbe légère) si OSRM ne répond pas
+  const routeFallback = useMemo(() => {
     if (!dest) return null;
     const mid1: LatLng = {
       latitude: userPos.latitude + (dest.latitude - userPos.latitude) * 0.35 + 0.004,
@@ -157,10 +197,16 @@ export default function ClientMapScreen({ navigation }: Props) {
     return [userPos, mid1, mid2, { latitude: dest.latitude, longitude: dest.longitude }];
   }, [dest, userPos]);
 
+  // 🛣️ Route affichée : tracé RÉEL des rues (OSRM) en priorité
+  const route = routeReal?.points ?? routeFallback;
+
   const resetTrip = () => {
     setPhase('idle');
     setDestination(null);
     setDestCustom(null);
+    setRouteReal(null);
+    setQuery('');
+    setResults([]);
   };
 
   return (
@@ -264,7 +310,52 @@ export default function ClientMapScreen({ navigation }: Props) {
           <View style={[styles.pickerCard, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.pickerTitle}>Où allez-vous ?</Text>
-            <ScrollView bounces={false} style={{ maxHeight: 420 }}>
+            {/* 🔍 Recherche gratuite (Nominatim / OpenStreetMap) */}
+            <View style={styles.searchWrap}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Rechercher un lieu, une rue…"
+                placeholderTextColor={colors.textMuted}
+                value={query}
+                onChangeText={setQuery}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => { setQuery(''); setResults([]); }}>
+                  <Text style={styles.searchClear}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView bounces={false} style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
+              {/* Résultats de la recherche en ligne */}
+              {results.map((r) => (
+                <TouchableOpacity
+                  key={`${r.latitude}-${r.longitude}`}
+                  style={[styles.pickerItem, styles.pickerItemMap]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setDestination(null);
+                    setDestCustom({ name: `📍 ${r.name}`, latitude: r.latitude, longitude: r.longitude });
+                    setPickerVisible(false);
+                    setQuery('');
+                    setResults([]);
+                    setPhase('idle');
+                  }}
+                >
+                  <View style={styles.pickerIconWrap}>
+                    <Text style={{ fontSize: 12 }}>🌍</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerName} numberOfLines={1}>{r.name}</Text>
+                    <Text style={styles.pickerDist}>
+                      à {(distanceKm(userPos, r) * 1.35).toFixed(1)} km · {formatFCFA(estimatePrice(distanceKm(userPos, r) * 1.35))}
+                    </Text>
+                  </View>
+                  <Text style={styles.chevr}>›</Text>
+                </TouchableOpacity>
+              ))}
               {/* 🗺️ Option : déposer le point directement sur la carte */}
               <TouchableOpacity
                 style={[styles.pickerItem, styles.pickerItemMap]}
@@ -348,6 +439,19 @@ const styles = StyleSheet.create({
   },
   hintText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
   pickerItemMap: { backgroundColor: 'rgba(227,185,78,0.08)', borderRadius: 12, paddingHorizontal: 8, marginBottom: 2 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.panelLight,
+    borderWidth: 1,
+    borderColor: 'rgba(227,185,78,0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  searchIcon: { fontSize: 13, marginRight: 6 },
+  searchInput: { flex: 1, color: colors.text, fontSize: 14, paddingVertical: 11 },
+  searchClear: { color: colors.accent, fontSize: 15, fontWeight: '800', padding: 4 },
   topBar: {
     position: 'absolute',
     left: 14,

@@ -310,7 +310,7 @@ function clientScreen() {
     </div>
   </div>
   <div class="popover" id="popover">
-    <div class="pop-card"><div class="handle"></div><div class="pop-title">O\xF9 allez-vous ?</div><div class="qi qi-map" id="qiMap"><span class="qi-flag"></span><span class="qi-txt"><b>Choisir sur la carte</b><small>Touchez un point directement sur la carte</small></span><span class="qi-chevr">\u203A</span></div>${items}<button class="gbtn outline" id="popClose">Fermer</button></div>
+    <div class="pop-card"><div class="handle"></div><div class="pop-title">O\xF9 allez-vous ?</div><div class="qsearch"><span>\u{1F50D}</span><input id="popSearch" placeholder="Rechercher un lieu, une rue\u2026" autocomplete="off"></div><div id="searchRes"></div><div class="qi qi-map" id="qiMap"><span class="qi-flag"></span><span class="qi-txt"><b>Choisir sur la carte</b><small>Touchez un point directement sur la carte</small></span><span class="qi-chevr">\u203A</span></div>${items}<button class="gbtn outline" id="popClose">Fermer</button></div>
   </div>
 </div>`;
 }
@@ -498,6 +498,11 @@ path.glowRoute{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}
 @keyframes hintPulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
 .qi-map{background:linear-gradient(90deg,rgba(227,185,78,.12),transparent);border-radius:12px;padding-left:8px}
 .qi-map b{color:var(--gold)}
+.qsearch{display:flex;align-items:center;gap:8px;background:var(--panelL);border:1px solid var(--border);border-radius:14px;padding:0 12px;margin-bottom:8px}
+.qsearch span{font-size:13px}
+.qsearch input{flex:1;background:none;border:none;outline:none;color:var(--txt);font-size:14px;padding:12px 0;font-family:inherit}
+.qsearch input::placeholder{color:var(--mut)}
+.qi-res{background:rgba(30,138,138,.09);border-radius:10px;padding-left:8px}
 @media(max-width:440px){.phone{height:100vh;border-radius:0;border:none}}
 `;
 var JS = `
@@ -568,6 +573,29 @@ function setDest(lat,lng,name){
   byId('btnSearch').disabled=false;
   byId('hintDest').classList.add('hidden');
   drawCurved(lat,lng);
+  osrmRoute(lat,lng);
+  if(!name)reverseName(lat,lng,function(n){if(curDest&&curDest.lat===lat){curDest.name='\u{1F4CD} '+n;byId('destVal').textContent=curDest.name;}});
+}
+// \u{1F30D} Nominatim (recherche gratuite, sans cl\xE9) + \u{1F6E3}\uFE0F OSRM (itin\xE9raires r\xE9els gratuits)
+const NOM='https://nominatim.openstreetmap.org';
+const OSRM='https://router.project-osm.org';
+const HDR={'Accept':'application/json'};
+function reverseName(lat,lng,cb){
+  fetch(NOM+'/reverse?format=jsonv2&accept-language=fr&zoom=17&lat='+lat+'&lon='+lng,{headers:HDR})
+  .then(function(r){return r.ok?r.json():null;})
+  .then(function(j){if(!j)return;var a=j.address||{};var n=j.name||a.neighbourhood||a.suburb||a.quarter||a.road||a.village||a.town;if(n)cb(n);})
+  .catch(function(){});
+}
+function osrmRoute(lat,lng){
+  fetch(OSRM+'/route/v1/driving/'+U[1]+','+U[0]+';'+lng+','+lat+'?overview=full&geometries=geojson',{headers:HDR})
+  .then(function(r){return r.ok?r.json():null;})
+  .then(function(j){var rt=j&&j.routes&&j.routes[0];if(!rt||!curDest||curDest.lat!==lat||curDest.lng!==lng)return;
+    var km=rt.distance/1000,min=Math.max(2,Math.round(rt.duration/60));
+    byId('estKm').textContent=km.toFixed(1)+' km';
+    byId('estMin').textContent='~'+min+' min';
+    byId('estPrice').textContent=fmt(priceOf(km));
+    if(ok&&rt.geometry&&rt.geometry.coordinates){var pts=rt.geometry.coordinates.map(function(c){return [c[1],c[0]];});drawRoute(mc,'c',pts);}
+  }).catch(function(){});
 }
 let destMk=null;
 if(ok){mc.on('click',e=>setDest(e.latlng.lat,e.latlng.lng,null));}
@@ -586,6 +614,33 @@ document.querySelectorAll('.qi:not(.qi-map)').forEach(it=>it.onclick=()=>{
   byId('popover').classList.remove('open');
 });
 byId('qiMap').onclick=()=>{byId('popover').classList.remove('open');byId('hintDest').classList.remove('hidden');};
+// \u{1F50D} Recherche de lieux en direct (Nominatim \u2014 \xE9quivalent gratuit de Google Places)
+(function(){
+  var inp=byId('popSearch'),res=byId('searchRes'),deb=null;
+  if(!inp)return;
+  inp.addEventListener('input',function(){
+    var q=inp.value.trim();clearTimeout(deb);
+    if(q.length<3){res.innerHTML='';return;}
+    deb=setTimeout(function(){
+      fetch(NOM+'/search?format=jsonv2&limit=6&accept-language=fr&countrycodes=ml,ne&q='+encodeURIComponent(q),{headers:HDR})
+      .then(function(r){return r.ok?r.json():[];})
+      .then(function(j){
+        res.innerHTML='';
+        (j||[]).forEach(function(p){
+          var lat=+p.lat,lng=+p.lon,nm=String(p.display_name||'').split(',').slice(0,2).join(',');
+          var dv=document.createElement('div');dv.className='qi qi-res';
+          dv.innerHTML='<span class="qi-flag"></span><span class="qi-txt"><b>'+nm.replace(/</g,'&lt;')+'</b><small>\u{1F30D} Recherche en ligne \xB7 OpenStreetMap</small></span><span class="qi-chevr">\u203A</span>';
+          dv.onclick=function(){
+            setDest(lat,lng,'\u{1F4CD} '+nm);
+            if(ok)mc.flyToBounds(L.polyline([U,[lat,lng]]).getBounds(),{padding:[40,60]});
+            byId('popover').classList.remove('open');inp.value='';res.innerHTML='';
+          };
+          res.appendChild(dv);
+        });
+      }).catch(function(){});
+    },450);
+  });
+})();
 byId('btnSearch').onclick=e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Recherche d\u2019un chauffeur\u2026';setTimeout(()=>{byId('cIdle').style.display='none';byId('foundPrice').textContent=byId('estPrice').textContent;byId('cFound').style.display='block';},1600);};
 byId('btnCancel').onclick=()=>{byId('cFound').style.display='none';byId('cIdle').style.display='block';const b=byId('btnSearch');b.disabled=false;b.textContent='Rechercher une voiture';clearDest();};
 // ---- CHAUFFEUR ----

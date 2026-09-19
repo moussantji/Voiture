@@ -35,8 +35,8 @@ Application VTC premium à Bamako 🇲🇱 · **Palette validée : Niger Royal**
 - [ ] Dev build native (MapLibre) : `npx expo prebuild && npx expo run:android`
 - [ ] Firebase Auth : connexion par téléphone (OTP SMS +223)
 - [ ] Firestore / Realtime DB : positions chauffeurs temps réel
-- [ ] Geocoding OSM (Nominatim) ou Google Places : recherche « Où allez-vous ? » réelle
-- [ ] OSRM / OpenRouteService / Google Directions : itinéraire + prix réels
+- [x] Geocoding OSM (Nominatim) : recherche « Où allez-vous ? » réelle ✅ fait (preview + app, `src/services/geo.ts`)
+- [x] OSRM : itinéraire réel qui suit les rues + distance/durée réelles ✅ fait (gratuit, sans clé ⚖️ fair-use)
 - [ ] Notifications push (Expo / FCM)
 - [ ] (Option) Clé Google Maps → remplacer `YOUR_GOOGLE_MAPS_API_KEY` + `MAP_PROVIDER='google'`
 
