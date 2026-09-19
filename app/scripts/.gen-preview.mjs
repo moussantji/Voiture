@@ -276,7 +276,7 @@ function clientScreen() {
     </div>`;
   }).join("");
   return `<div class="scr" id="screenClient">
-  <div class="leaflet-host" id="mapC"></div>
+  <div class="gmap-host" id="gmapC"></div>
   <div class="static-map" id="staticC">${mapSVG()}${staticLabels()}${staticCars()}${staticPin()}<svg class="route-svg" viewBox="0 0 ${W} ${H}"><polyline id="polyC" points="" fill="none" stroke="#E3B94E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div class="topbar">
     <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
@@ -316,7 +316,7 @@ function clientScreen() {
 function driverScreen() {
   const req = INCOMING_REQUEST;
   return `<div class="scr hidden" id="screenDriver">
-  <div class="leaflet-host" id="mapD"></div>
+  <div class="gmap-host" id="gmapD"></div>
   <div class="static-map" id="staticD">${mapSVG()}${staticLabels()}<div class="car big" style="left:${proj(DRIVER_POSITION).x.toFixed(0)}px;top:${proj(DRIVER_POSITION).y.toFixed(0)}px"><span>\u{1F697}</span></div><svg class="route-svg" viewBox="0 0 ${W} ${H}"><path id="routeDStatic" d="" stroke="#E3B94E" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div class="topbar">
     <button class="fbtn" data-menu><span class="menu-i"><i></i><i></i><i></i></span></button>
@@ -383,17 +383,15 @@ body{background:radial-gradient(1200px 800px at 50% 20%,#0E3B2D,#051A15 70%);min
 .screen{position:relative;height:calc(100% - 26px);overflow:hidden;border-radius:0 0 42px 42px}
 .scr{position:absolute;inset:0}
 .hidden{display:none!important}
-/* ---- Leaflet ---- */
-.leaflet-host{position:absolute;inset:0;z-index:1;display:none;background:#0B1E1A}
-.leaflet-container{background:#0B1E1A;font-family:inherit;outline:none}
-.leaflet-tile-pane{filter:hue-rotate(118deg) saturate(.85) brightness(.93) contrast(1.05)}
-.leaflet-control-attribution{background:rgba(13,42,34,.75)!important;color:rgba(216,210,192,.7)!important;font-size:8px!important;padding:2px 6px!important}
-.leaflet-control-attribution a{color:#9FD6D2!important}
-path.glowRoute{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}
-.nrmk{background:none;border:none}
+/* ---- Google Maps iframe (nuit \xE9meraude) ---- */
+.gmap-host{position:absolute;inset:0;z-index:1;display:none;background:#0B1E1A}
+.gmap-host iframe{position:absolute;inset:0;width:100%;height:100%;border:0;filter:invert(100%) hue-rotate(180deg) saturate(.8) brightness(.96) contrast(1.06)}
+.gmap-load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--mut);font-size:13px;z-index:2}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(227,185,78,.25);border-top-color:var(--gold);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* ---- carte statique (repli) ---- */
 .static-map{position:absolute;inset:0;z-index:1;display:none}
-.static-map.show{display:block}
+.static-map.show{display:block;z-index:3}
 .map-svg{position:absolute;inset:0;width:100%;height:100%}
 .q{position:absolute;font-size:8.5px;letter-spacing:1.5px;color:#B8CCBE;opacity:.87;transform:translateX(-24px);text-shadow:0 1px 4px rgba(11,30,26,.9)}
 .city{position:absolute;font-family:var(--serif);font-size:26px;font-weight:700;letter-spacing:1.5px;color:#F4EFE3;text-shadow:0 2px 8px rgba(0,0,0,.65)}
@@ -409,12 +407,6 @@ path.glowRoute{filter:drop-shadow(0 0 6px rgba(227,185,78,.85))}
 .user-pin b{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--gold);border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9);display:flex;align-items:center;justify-content:center}
 .user-pin u{width:8px;height:8px;border-radius:50%;background:#12251F;text-decoration:none}
 .user-pin s{position:absolute;left:50%;top:11px;width:3px;height:10px;margin-left:-1.5px;background:var(--gold);border-radius:2px;text-decoration:none}
-/* markers leaflet */
-.lcar{width:34px;height:34px;border-radius:50%;background:var(--gold);border:2px solid #0B1E1A;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px rgba(227,185,78,.75)}
-.lpin{position:relative;width:8px;height:8px}
-.lpin i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:var(--gold);opacity:.55;animation:pulse 1.6s ease-out infinite}
-.lpin b{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--gold);border:2.5px solid #0B1E1A;box-shadow:0 0 10px rgba(227,185,78,.9)}
-.lpin b::after{content:'';position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#12251F}
 /* ---- chrome UI ---- */
 .topbar{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:8px;z-index:600}
 .fbtn{width:46px;height:46px;border-radius:50%;background:var(--panel);border:1px solid var(--border);box-shadow:0 4px 8px rgba(0,0,0,.35);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center}
@@ -500,52 +492,45 @@ const R={latitude:${R.latitude},longitude:${R.longitude},latitudeDelta:${R.latit
 const pj=p=>({x:((p.longitude-(R.longitude-R.longitudeDelta/2))/R.longitudeDelta)*W,y:((R.latitude+R.latitudeDelta/2-p.latitude)/R.latitudeDelta)*H});
 const U=[${USER_POSITION.latitude},${USER_POSITION.longitude}];
 const byId=id=>document.getElementById(id);
-// \u{1F4D0} fit auto
 function fit(){const b=byId('board');if(!b)return;b.style.transform='translateX(-50%) scale(1)';const h=b.scrollHeight,w=b.offsetWidth||402;const s=Math.min(1,(window.innerHeight-10)/h,(window.innerWidth-10)/w);b.style.transform='translateX(-50%) scale('+s+')';}
 window.addEventListener('resize',fit);window.addEventListener('load',fit);setTimeout(fit,50);
 document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>alert('Menu \u2630 (d\xE9mo)'));
 document.querySelectorAll('[data-notif]').forEach(b=>b.onclick=()=>alert('\u{1F514} Notifications (d\xE9mo)'));
-// ---- Leaflet ----
-let mc=null,md=null,routeC=null,routeD=null,cars=[],tileErr={c:0,d:0};
-function mkMap(el,which){
-  const host=byId(el);host.style.display='block';
-  const map=L.map(el,{zoomControl:false,attributionControl:true,center:U,zoom:12.6,scrollWheelZoom:true,doubleClickZoom:true});
-  const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'\xA9 OpenStreetMap \xB7 \xA9 CARTO',maxZoom:19,subdomains:'abcd'});
-  tiles.on('tileerror',()=>{tileErr[which]++;if(tileErr[which]>6){fallback(which=== 'c'?'staticC':'staticD',host);}});
-  tiles.addTo(map);return map;
+// ---- GOOGLE MAPS embed (vrai Google Maps, interactif natif) ----
+const gview=(lat,lng,z)=>'https://maps.google.com/maps?q='+lat+','+lng+'&hl=fr&z='+(z||13)+'&output=embed';
+const gdir=(a,b)=>'https://maps.google.com/maps?saddr='+a[0]+','+a[1]+'&daddr='+b[0]+','+b[1]+'&hl=fr&z=13&output=embed';
+const state={ok:{C:false,D:false},loading:{}};
+function loadGmap(which,url,done){
+  const host=byId('gmap'+which);if(!host)return;
+  state.loading[which]=true;
+  host.innerHTML='<div class="gmap-load"><div class="spin"></div><span>Chargement Google Maps\u2026</span></div>';
+  host.style.display='block';
+  const ifr=document.createElement('iframe');
+  ifr.src=url;ifr.setAttribute('loading','eager');ifr.setAttribute('referrerpolicy','no-referrer-when-downgrade');
+  let settled=false;
+  const ok=()=>{if(settled)return;settled=true;state.ok[which]=true;host.innerHTML='';host.appendChild(ifr);done&&done(true);};
+  const bad=()=>{if(settled)return;settled=true;state.ok[which]=false;host.innerHTML='';host.style.display='none';byId(which==='C'?'staticC':'staticD').classList.add('show');done&&done(false);};
+  ifr.onload=ok;
+  setTimeout(()=>{if(!settled)bad();},7000);
+  setTimeout(()=>{try{if(!ifr.contentWindow||ifr.contentWindow.document&&ifr.contentWindow.length===0){}}catch(e){}},3000);
 }
-function fallback(staticId,host){const s=byId(staticId);hostsDel(host);s&&s.classList.add('show');}
-function hostsDel(h){try{h.style.display='none'}catch(e){}}
-function carIcon(){return L.divIcon({className:'nrmk',html:'<div class="lcar">\u{1F695}</div>',iconSize:[34,34],iconAnchor:[17,17]});}
-function pinIcon(){return L.divIcon({className:'nrmk',html:'<div class="lpin"><i></i><b></b></div>',iconSize:[8,8],iconAnchor:[4,4]});}
-function flagIcon(){return L.divIcon({className:'nrmk',html:'<div style="font-size:20px;transform:translate(-50%,-100%)">\u{1F4CD}</div>',iconSize:[20,20],iconAnchor:[10,20]});}
-function bigCarIcon(){return L.divIcon({className:'nrmk',html:'<div class="lcar" style="width:42px;height:42px;font-size:20px">\u{1F697}</div>',iconSize:[42,42],iconAnchor:[21,21]});}
-function drawRoute(map,which,pts){
-  const arr=pts.map(p=>p.length?p:[p.latitude,p.longitude]);
-  if(which==='c'){if(routeC)routeC.remove();routeC=L.polyline(arr,{color:'#E3B94E',weight:4,className:'glowRoute'}).addTo(map);}
-  else{if(routeD)routeD.remove();routeD=L.polyline(arr,{color:'#E3B94E',weight:4.5,className:'glowRoute'}).addTo(map);}
+function swapGmap(which,url){
+  if(!state.ok[which])return;
+  const host=byId('gmap'+which);
+  const old=host.querySelector('iframe');
+  const ifr=document.createElement('iframe');ifr.src=url;ifr.style.opacity='0';
+  ifr.onload=()=>{host.appendChild(ifr);requestAnimationFrame(()=>{ifr.style.transition='opacity .35s';ifr.style.opacity='1';setTimeout(()=>{old&&old.remove();},400);});};
+  host.appendChild(ifr);
 }
-function initMaps(){
-  if(typeof L==='undefined'){byId('staticC').classList.add('show');byId('staticD').classList.add('show');return false;}
-  try{
-    mc=mkMap('mapC','c');
-    L.marker(U,{icon:pinIcon()}).addTo(mc);
-    ${CARS.map((c) => `cars.push(L.marker([${c.latitude},${c.longitude}],{icon:carIcon()}).addTo(mc));`).join("\n    ")}
-    setInterval(()=>{cars.forEach(m=>{const [a,b]=[m.getLatLng().lat,m.getLatLng().lng];m.setLatLng([a+(Math.random()-.5)*0.0022,b+(Math.random()-.5)*0.0022]);});},1800);
-    md=mkMap('mapD','d');
-    L.marker(${`[${DRIVER_POSITION.latitude},${DRIVER_POSITION.longitude}]`},{icon:bigCarIcon()}).addTo(md);
-  }catch(e){byId('staticC').classList.add('show');byId('staticD').classList.add('show');return false;}
-  return true;
-}
-const ok=initMaps();
+loadGmap('C',gview(U[0],U[1],13));
+loadGmap('D',gview(${DRIVER_POSITION.latitude},${DRIVER_POSITION.longitude},12.5));
 // onglets
 const tabC=byId('tabC'),tabD=byId('tabD');
-function show(name){byId('screenClient').classList.toggle('hidden',name!=='c');byId('screenDriver').classList.toggle('hidden',name!=='d');tabC.classList.toggle('on',name==='c');tabD.classList.toggle('on',name==='d');setTimeout(()=>{if(ok)(name==='c'?mc:md).invalidateSize();},60);if(name==='d')armRequest();}
+function show(name){byId('screenClient').classList.toggle('hidden',name!=='c');byId('screenDriver').classList.toggle('hidden',name!=='d');tabC.classList.toggle('on',name==='c');tabD.classList.toggle('on',name==='d');if(name==='d')armRequest();}
 tabC.onclick=()=>show('c');tabD.onclick=()=>show('d');
 // ---- CLIENT ----
 byId('destField').onclick=()=>byId('popover').classList.add('open');
 byId('popClose').onclick=()=>byId('popover').classList.remove('open');
-let destMk=null;
 document.querySelectorAll('.qi').forEach(it=>it.onclick=()=>{
   byId('destVal').textContent=it.dataset.name;
   byId('estRow').style.display='flex';
@@ -553,12 +538,9 @@ document.querySelectorAll('.qi').forEach(it=>it.onclick=()=>{
   byId('estMin').textContent='~'+it.dataset.min+' min';
   byId('estPrice').textContent=it.dataset.price;
   byId('btnSearch').disabled=false;
-  const dest={latitude:+it.dataset.lat,longitude:+it.dataset.lng};
-  const u={latitude:U[0],longitude:U[1]};
-  const m1={latitude:u.latitude+(dest.latitude-u.latitude)*0.35+0.004,longitude:u.longitude+(dest.longitude-u.longitude)*0.35};
-  const m2={latitude:u.latitude+(dest.latitude-u.latitude)*0.7,longitude:u.longitude+(dest.longitude-u.longitude)*0.7+0.003};
-  if(ok){drawRoute(mc,'c',[u,m1,m2,dest]);if(destMk)destMk.remove();destMk=L.marker([dest.latitude,dest.longitude],{icon:flagIcon()}).addTo(mc);mc.flyToBounds(L.polyline([[u.latitude,u.longitude],[dest.latitude,dest.longitude]]).getBounds(),{padding:[40,60]});}
-  else{const pts=[u,m1,m2,dest].map(pj);byId('polyC').setAttribute('points',pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '));}
+  const dest=[+it.dataset.lat,+it.dataset.lng];
+  if(state.ok.C){swapGmap('C',gdir(U,dest));}
+  else{const u={latitude:U[0],longitude:U[1]};const d={latitude:dest[0],longitude:dest[1]};const m1={latitude:u.latitude+(d.latitude-u.latitude)*0.35+0.004,longitude:u.longitude+(d.longitude-u.longitude)*0.35};const m2={latitude:u.latitude+(d.latitude-u.latitude)*0.7,longitude:u.longitude+(d.longitude-u.longitude)*0.7+0.003};const pts=[u,m1,m2,d].map(pj);byId('polyC').setAttribute('points',pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '));}
   byId('popover').classList.remove('open');
 });
 byId('btnSearch').onclick=e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Recherche d\u2019un chauffeur\u2026';setTimeout(()=>{byId('cIdle').style.display='none';byId('foundPrice').textContent=byId('estPrice').textContent;byId('cFound').style.display='block';},1600);};
@@ -567,31 +549,29 @@ byId('btnCancel').onclick=()=>{byId('cFound').style.display='none';byId('cIdle')
 const PK=[${INCOMING_REQUEST.pickup.latitude},${INCOMING_REQUEST.pickup.longitude}];
 const DS=[${INCOMING_REQUEST.destination.latitude},${INCOMING_REQUEST.destination.longitude}];
 const DR=[${DRIVER_POSITION.latitude},${DRIVER_POSITION.longitude}];
-const dstat={toStatic:null,ridingStatic:null};
-dstat.toStatic='M '+[DR,[ (DR[0]+PK[0])/2+0.01,(DR[1]+PK[1])/2+0.012 ],PK].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
-dstat.ridingStatic='M '+[PK,[ (PK[0]+DS[0])/2+0.008,(PK[1]+DS[1])/2+0.015 ],DS].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
+const dstat={to:null,ride:null};
+dstat.to='M '+[DR,[(DR[0]+PK[0])/2+0.01,(DR[1]+PK[1])/2+0.012],PK].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
+dstat.ride='M '+[PK,[(PK[0]+DS[0])/2+0.008,(PK[1]+DS[1])/2+0.015],DS].map(p=>{const q=pj({latitude:p[0],longitude:p[1]});return q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' L ');
 let armed=false,accepted=false,timer=null;
 function armRequest(){if(armed||accepted)return;armed=true;setTimeout(()=>{if(!accepted)showReq();},1200);}
 function showReq(){byId('reqModal').classList.remove('hidden');let s=15;const fill=byId('cntFill');fill.style.width='100%';byId('cntLbl').textContent=s+'s pour accepter';timer=setInterval(()=>{s--;fill.style.width=(s/15*100)+'%';byId('cntLbl').textContent=s+'s pour accepter';if(s<=0){clearInterval(timer);byId('reqModal').classList.add('hidden');}},1000);}
 function stopTimer(){if(timer)clearInterval(timer);}
-byId('btnRefuse').onclick=()=>{stopTimer();byId('reqModal').classList.add('hidden');armed=true;setTimeout(()=>{if(!accepted)showReq();},4000);};
+byId('btnRefuse').onclick=()=>{stopTimer();byId('reqModal').classList.add('hidden');setTimeout(()=>{if(!accepted)showReq();},4000);};
 byId('btnAccept').onclick=()=>{
   stopTimer();accepted=true;byId('reqModal').classList.add('hidden');
   byId('dIdle').style.display='none';byId('dClient').style.display='flex';byId('dInfo').style.display='flex';
   byId('dInfoLbl').textContent='PRISE EN CHARGE';byId('dInfoVal').textContent='${INCOMING_REQUEST.pickup.name}';
   byId('btnDrive').style.display='block';
-  if(ok){const m1=[(DR[0]+PK[0])/2+0.01,(DR[1]+PK[1])/2+0.012];drawRoute(md,'d',[DR,m1,PK]);md.flyToBounds(L.polyline([DR,PK]).getBounds(),{padding:[50,80]});}
-  else{byId('routeDStatic').setAttribute('d',dstat.toStatic);}
+  if(state.ok.D){swapGmap('D',gdir(DR,PK));}else{byId('routeDStatic').setAttribute('d',dstat.to);}
 };
 const stages=['ARRIV\xC9E CLIENT','D\xC9MARRER LA COURSE','TERMINER LA COURSE'];let st=0;
 byId('btnDrive').onclick=e=>{st++;const b=e.currentTarget;
   if(st===1){b.textContent=stages[1];byId('dInfoLbl').textContent='DESTINATION';byId('dInfoVal').textContent='${INCOMING_REQUEST.destination.name}';
-    if(ok){const m2=[(PK[0]+DS[0])/2+0.008,(PK[1]+DS[1])/2+0.015];drawRoute(md,'d',[PK,m2,DS]);md.flyToBounds(L.polyline([PK,DS]).getBounds(),{padding:[50,80]});}
-    else{byId('routeDStatic').setAttribute('d',dstat.ridingStatic);}}
+    if(state.ok.D){swapGmap('D',gdir(PK,DS));}else{byId('routeDStatic').setAttribute('d',dstat.ride);}}
   else if(st===2){b.textContent=stages[2];}
   else{byId('doneModal').classList.remove('hidden');st=0;b.textContent=stages[0];}};
 byId('btnCash').onclick=()=>{byId('doneModal').classList.add('hidden');accepted=false;armed=false;
-  if(ok){if(routeD){routeD.remove();routeD=null;}}else{byId('routeDStatic').setAttribute('d','');}
+  if(state.ok.D){swapGmap('D',gview(DR[0],DR[1],12.5));}else{byId('routeDStatic').setAttribute('d','');}
   byId('dClient').style.display='none';byId('dInfo').style.display='none';byId('btnDrive').style.display='none';byId('dIdle').style.display='block';};
 `;
 var html = `<!DOCTYPE html>
@@ -600,15 +580,13 @@ var html = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Niger Royal \u2014 Bamako</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>${CSS}</style>
 </head>
 <body>
 <div id="board">
 <div class="crown">\u{1F451}</div>
 <div class="brand">NIGER ROYAL</div>
-<div class="sub">PREVIEW \xB7 BAMAKO \u{1F1F2}\u{1F1F1}</div>
+<div class="sub">PREVIEW \xB7 GOOGLE MAPS \xB7 BAMAKO \u{1F1F2}\u{1F1F1}</div>
 <div class="tabs"><button class="tab on" id="tabC">\u{1F4F1} App Client</button><button class="tab" id="tabD">\u{1F697} App Chauffeur</button></div>
 <div class="phone"><div class="notch"></div><div class="screen">${clientScreen()}${driverScreen()}</div></div>
 </div>
