@@ -1,9 +1,9 @@
 // 🗺️ Carte multi-plateforme :
 // - iOS/Android → react-native-maps (Google Maps + style Niger Royal)
-// - Web (preview) → rendu vectoriel SVG imitant la carte (fleuve, routes, quartiers)
+// - Web (preview) → VRAIE carte de Bamako (tuiles CartoDB dark basées sur
+//   OpenStreetMap) + filtre CSS émeraude → rendu proche de la maquette validée
 import React, { createContext, useContext, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { QUARTIERS } from '../data/mock';
 
 export type LatLng = { latitude: number; longitude: number };
 export type Region = LatLng & { latitudeDelta: number; longitudeDelta: number };
@@ -15,56 +15,121 @@ const RNMaps: any = isNative ? require('react-native-maps') : null;
 
 export const PROVIDER_GOOGLE: any = RNMaps ? RNMaps.PROVIDER_GOOGLE : undefined;
 
-// ---------- Projection lat/lng → pixels (fallback web) ----------
+// ---------- Projection Web Mercator (identique aux tuiles) ----------
 type Px = { x: number; y: number };
-type Ctx = { region: Region; width: number; height: number };
-const WebCtx = createContext<Ctx | null>(null);
+type Proj = (p: LatLng) => Px;
 
-function project(region: Region, width: number, height: number, p: LatLng): Px {
-  const x = ((p.longitude - (region.longitude - region.longitudeDelta / 2)) / region.longitudeDelta) * width;
-  const y = ((region.latitude + region.latitudeDelta / 2 - p.latitude) / region.latitudeDelta) * height;
-  return { x, y };
+const WebCtx = createContext<Proj | null>(null);
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+function lngToWorldX(lng: number, worldSize: number) {
+  return ((lng + 180) / 360) * worldSize;
+}
+function latToWorldY(lat: number, worldSize: number) {
+  const s = Math.sin((clamp(lat, -85, 85) * Math.PI) / 180);
+  return ((1 - Math.log((1 + s) / (1 - s)) / Math.PI) / 2) * worldSize;
 }
 
-// ---------- Décor de carte web (SVG) ----------
-function WebMapDecor({ region, width, height }: Ctx) {
-  const road = '#14503F';
-  const roadMain = '#1A5B48';
-  const v = (lat: number, lng: number) => project(region, width, height, { latitude: lat, longitude: lng });
+function buildProjection(region: Region, width: number, height: number) {
+  const zoom = Math.log2(360 / region.longitudeDelta);
+  const worldSize = 256 * Math.pow(2, zoom);
+  const cx = lngToWorldX(region.longitude, worldSize);
+  const cy = latToWorldY(region.latitude, worldSize);
+  const ox = cx - width / 2;
+  const oy = cy - height / 2;
+  return (p: LatLng): Px => ({
+    x: lngToWorldX(p.longitude, worldSize) - ox,
+    y: latToWorldY(p.latitude, worldSize) - oy,
+  });
+}
 
-  // Quelques routes principales (simplifiées) — côté RN jamais exécuté
-  const roads: { d: string; w: number }[] = [
-    { d: `M ${v(12.668, -8.06).y * 0 + 60} ${0} ` + '', w: 3 }, // placeholder retiré ci-dessous
-  ];
-  roads.length = 0;
-  const p1 = v(12.668, -8.06); const p2 = v(12.62, -7.95); const p3 = v(12.5785, -7.92);
-  const p4 = v(12.60, -8.07); const p5 = v(12.63, -8.0); const p6 = v(12.66, -7.94);
-  const p7 = v(12.575, -8.04); const p8 = v(12.640, -8.07);
-  const p9 = v(12.627, -8.035); const p10 = v(12.6536, -7.9576);
-  const d1 = `M ${p1.x} ${p1.y} L ${p5.x} ${p5.y} L ${p2.x} ${p2.y}`;
-  const d2 = `M ${p4.x} ${p4.y} L ${p5.x} ${p5.y} L ${p6.x} ${p6.y}`;
-  const d3 = `M ${p7.x} ${p7.y} L ${p9.x} ${p9.y} L ${p10.x} ${p10.y}`;
-  const d4 = `M ${p8.x} ${p8.y} L ${p9.x} ${p9.y} L ${p3.x} ${p3.y}`;
+// ---------- Tuiles raster (web) ----------
+function tileUrl(z: number, x: number, y: number, s: string) {
+  return `https://${s}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`;
+}
 
-  // Fleuve Niger : courbe qui traverse Bamako (Sud-Ouest → Nord-Est)
-  const r1 = v(12.648, -8.065);
-  const r2 = v(12.622, -8.015);
-  const r3 = v(12.608, -7.965);
-  const r4 = v(12.612, -7.915);
+function WebTiles({ region, width, height }: { region: Region; width: number; height: number }) {
+  const zoom = Math.log2(360 / region.longitudeDelta);
+  const tz = clamp(Math.round(zoom), 12, 18);
+  const scale = Math.pow(2, zoom - tz); // facteur entre pixels projetés et tuiles
+  const worldT = 256 * Math.pow(2, tz);
 
+  const zoomW = Math.log2(360 / region.longitudeDelta);
+  const worldSize = 256 * Math.pow(2, zoomW);
+  const ox = lngToWorldX(region.longitude, worldSize) - width / 2;
+  const oy = latToWorldY(region.latitude, worldSize) - height / 2;
+
+  const x0 = Math.floor(ox / scale / 256);
+  const x1 = Math.floor((ox + width) / scale / 256);
+  const y0 = Math.floor(oy / scale / 256);
+  const y1 = Math.floor((oy + height) / scale / 256);
+
+  const subs = ['a', 'b', 'c', 'd'];
+  const tiles: React.ReactNode[] = [];
+  for (let x = x0; x <= x1; x++) {
+    for (let y = y0; y <= y1; y++) {
+      const n = Math.pow(2, tz);
+      const wrapped = ((x % n) + n) % n;
+      if (y < 0 || y >= n) continue;
+      // @ts-ignore — image brute uniquement côté web
+      tiles.push(
+        <img
+          key={`${tz}-${wrapped}-${y}`}
+          src={tileUrl(tz, wrapped, y, subs[(wrapped + y) % subs.length])}
+          draggable={false}
+          style={
+            {
+              position: 'absolute',
+              left: wrapped * 256 * scale - ox + (x < 0 || x >= n ? (x - wrapped) * worldT * scale : 0),
+              top: y * 256 * scale - oy,
+              width: 256 * scale,
+              height: 256 * scale,
+              userSelect: 'none',
+              pointerEvents: 'none',
+            } as any
+          }
+          alt=""
+        />,
+      );
+    }
+  }
   return (
-    // @ts-ignore — JSX intrinsèque SVG uniquement utilisé côté web
-    <svg
-      width={width}
-      height={height}
-      style={{ position: 'absolute', top: 0, left: 0 } as any}
-      viewBox={`0 0 ${width} ${height}`}
+    // @ts-ignore — div brute uniquement côté web (garantit l'application du filtre CSS)
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        // Filtre qui transforme la carte CARTO "dark" en thème émeraude Niger Royal
+        filter: 'hue-rotate(115deg) saturate(0.85) brightness(0.92) contrast(1.05)',
+      }}
     >
+      {tiles}
+    </div>
+  );
+}
+
+function WebMarker({ coordinate, children }: any) {
+  const project = useContext(WebCtx);
+  if (!project) return null;
+  const { x, y } = project(coordinate);
+  return <View style={[styles.marker, { left: x, top: y }]}>{children ?? <View style={styles.dot} />}</View>;
+}
+
+function WebPolyline({ coordinates = [], strokeColor = '#E3B94E', strokeWidth = 5 }: any) {
+  const project = useContext(WebCtx);
+  if (!project || coordinates.length < 2) return null;
+  const pts = coordinates.map((c: LatLng) => project(c));
+  const maxX = Math.max(...pts.map((p: Px) => p.x)) + 20;
+  const maxY = Math.max(...pts.map((p: Px) => p.y)) + 20;
+  const points = pts.map((p: Px) => `${p.x},${p.y}`).join(' ');
+  return (
+    // @ts-ignore — SVG web uniquement
+    <svg width={maxX} height={maxY} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' } as any}>
       <defs>
-        <radialGradient id="bg" cx="50%" cy="40%" r="90%">
-          <stop offset="0%" stopColor="#0E3B2D" />
-          <stop offset="100%" stopColor="#0B1E1A" />
-        </radialGradient>
         <filter id="glowRoute" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="4" result="b" />
           <feMerge>
@@ -73,77 +138,9 @@ function WebMapDecor({ region, width, height }: Ctx) {
           </feMerge>
         </filter>
       </defs>
-      <rect x="0" y="0" width={width} height={height} fill="url(#bg)" />
-      {/* quadrillage urbain */}
-      {Array.from({ length: Math.ceil(width / 42) }, (_, i) => (
-        <line key={'vx' + i} x1={i * 42} y1={0} x2={i * 42} y2={height} stroke="#103829" strokeWidth={1} />
-      ))}
-      {Array.from({ length: Math.ceil(height / 42) }, (_, i) => (
-        <line key={'hz' + i} x1={0} y1={i * 42} x2={width} y2={i * 42} stroke="#103829" strokeWidth={1} />
-      ))}
-      {Array.from({ length: Math.ceil(width / 42) }, (_, i) => (
-        <line key={'dg' + i} x1={i * 42 - height} y1={0} x2={i * 42} y2={height} stroke="#0F3126" strokeWidth={1} />
-      ))}
-      {/* fleuve Niger */}
-      <path
-        d={`M ${r1.x} ${r1.y} Q ${r2.x} ${r2.y} ${r3.x} ${r3.y} T ${r4.x} ${r4.y}`}
-        stroke="#1E8A8A"
-        strokeWidth={34}
-        strokeLinecap="round"
-        fill="none"
-        opacity={0.85}
-      />
-      {/* routes principales */}
-      <path d={d1} stroke={roadMain} strokeWidth={5} fill="none" />
-      <path d={d2} stroke={roadMain} strokeWidth={5} fill="none" />
-      <path d={d3} stroke={road} strokeWidth={4} fill="none" />
-      <path d={d4} stroke={road} strokeWidth={4} fill="none" />
-      {/* parcs */}
-      <circle cx={width * 0.32} cy={height * 0.62} r={26} fill="#103B2D" />
-      <circle cx={width * 0.72} cy={height * 0.28} r={20} fill="#103B2D" />
-    </svg>
-  );
-}
-
-function WebLabels({ region, width, height }: Ctx) {
-  const shown = QUARTIERS.filter((_, i) => i % 2 === 0).slice(0, 8);
-  return (
-    <>
-      {shown.map((q) => {
-        const { x, y } = project(region, width, height, q);
-        if (x < -40 || y < -20 || x > width + 40 || y > height + 20) return null;
-        return (
-          <Text key={q.name} style={[styles.label, { left: x, top: y }]}>
-            {q.name.toUpperCase()}
-          </Text>
-        );
-      })}
-      <Text style={[styles.city, { left: width * 0.5 - 50, top: height * 0.36 }]}>Bamako</Text>
-    </>
-  );
-}
-
-function WebMarker({ coordinate, children }: any) {
-  const ctx = useContext(WebCtx);
-  if (!ctx) return null;
-  const { x, y } = project(ctx.region, ctx.width, ctx.height, coordinate);
-  if (x < -60 || y < -60 || x > ctx.width + 60 || y > ctx.height + 60) return null;
-  return <View style={[styles.marker, { left: x, top: y }]}>{children ?? <View style={styles.dot} />}</View>;
-}
-
-function WebPolyline({ coordinates = [], strokeColor = '#E3B94E', strokeWidth = 4 }: any) {
-  const ctx = useContext(WebCtx);
-  if (!ctx || coordinates.length < 2) return null;
-  const pts = coordinates
-    .map((c: LatLng) => project(ctx.region, ctx.width, ctx.height, c))
-    .map((p: Px) => `${p.x},${p.y}`)
-    .join(' ');
-  return (
-    // @ts-ignore — SVG web uniquement
-    <svg width={ctx.width} height={ctx.height} style={{ position: 'absolute', top: 0, left: 0 } as any}>
       {/* @ts-ignore */}
       <polyline
-        points={pts}
+        points={points}
         fill="none"
         stroke={strokeColor}
         strokeWidth={strokeWidth}
@@ -151,36 +148,35 @@ function WebPolyline({ coordinates = [], strokeColor = '#E3B94E', strokeWidth = 
         strokeLinecap="round"
         filter="url(#glowRoute)"
       />
-      {/* point départ / arrivée */}
-      {coordinates.map((c: LatLng, i: number) => {
-        const p = project(ctx.region, ctx.width, ctx.height, c);
-        return i === coordinates.length - 1 ? (
-          <text key={i} x={p.x} y={p.y - 10} fontSize={20} textAnchor="middle">📍</text>
+      {pts.map((p: Px, i: number) =>
+        i === pts.length - 1 ? (
+          <text key={i} x={p.x} y={p.y - 8} fontSize={20} textAnchor="middle">
+            📍
+          </text>
         ) : (
           <circle key={i} cx={p.x} cy={p.y} r={5} fill={strokeColor} />
-        );
-      })}
+        ),
+      )}
     </svg>
   );
 }
 
 function WebMap({ children, style, region, customMapStyle: _ }: any) {
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const project = buildProjection(region, size.width || 1, size.height || 1);
   return (
     <View
       style={[styles.webMap, style]}
-      onLayout={(e) =>
-        setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })
-      }
+      onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
     >
       {size.width > 0 && (
-        <WebCtx.Provider value={{ region, ...size }}>
-          <WebMapDecor region={region} width={size.width} height={size.height} />
-          <WebLabels region={region} width={size.width} height={size.height} />
-          {children}
-        </WebCtx.Provider>
+        <>
+          <WebTiles region={region} width={size.width} height={size.height} />
+          <View style={[StyleSheet.absoluteFill, styles.brandTint]} pointerEvents="none" />
+          <WebCtx.Provider value={project}>{children}</WebCtx.Provider>
+        </>
       )}
-      <Text style={styles.google}>Google</Text>
+      <Text style={styles.attribution}>© OpenStreetMap · © CARTO</Text>
     </View>
   );
 }
@@ -224,24 +220,16 @@ export default MapView;
 
 const styles = StyleSheet.create({
   webMap: { overflow: 'hidden', backgroundColor: '#0B1E1A' },
-  label: {
+  brandTint: {
+    backgroundColor: 'rgba(11, 30, 26, 0.18)',
+  },
+  attribution: {
     position: 'absolute',
-    color: '#CBB98A',
+    right: 8,
+    bottom: 6,
+    color: 'rgba(216, 210, 192, 0.55)',
     fontSize: 9,
-    letterSpacing: 1,
-    transform: [{ translateX: -30 }],
-    opacity: 0.9,
   },
-  city: {
-    position: 'absolute',
-    color: '#F4EFE3',
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: 1,
-    opacity: 0.95,
-    zIndex: 0,
-  },
-  google: { position: 'absolute', left: 10, bottom: 8, color: '#D8D2C0', fontSize: 13, opacity: 0.8 },
   marker: { position: 'absolute', transform: [{ translateX: -16 }, { translateY: -16 }], zIndex: 5 },
   dot: {
     width: 14,

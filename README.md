@@ -22,4 +22,4 @@ ROADMAP.md         → fonctionnalités V1 / V1.1 / V1.2
 ```
 
 > 🗝️ Pour Google Maps sur mobile : ajouter votre clé API dans `app/app.json` (`YOUR_GOOGLE_MAPS_API_KEY`).
-> 🌐 La preview web affiche un rendu vectoriel simulé de la carte (react-native-maps est natif uniquement).
+> 🌐 La preview web affiche la **vraie carte de Bamako** (tuiles OpenStreetMap/CARTO + filtre émeraude) dans un cadre smartphone premium — le vrai Google Maps reste réservé aux builds Android/iOS.
