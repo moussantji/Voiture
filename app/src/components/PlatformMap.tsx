@@ -344,6 +344,16 @@ function LeafletWebMap({ children, style: _style, region, onPress }: any) {
         );
         mapRef.current = map;
         if (alive) setState('ready');
+        // 📐 Corrige l'affichage : recalcule la taille réelle après montage
+        const fix = () => {
+          try {
+            map.invalidateSize(true);
+          } catch {}
+        };
+        fix();
+        setTimeout(fix, 200);
+        setTimeout(fix, 800);
+        if (G.addEventListener) G.addEventListener('resize', fix);
       })
       .catch(() => {
         if (alive) setState('fallback');

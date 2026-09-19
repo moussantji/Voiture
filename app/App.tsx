@@ -26,6 +26,10 @@ const navTheme = {
 // 📐 Le cadre s'adapte automatiquement : zoom-out propre si la fenêtre est petite.
 function WebPhoneFrame({ children }: { children: React.ReactNode }) {
   const { width: winW, height: winH } = useWindowDimensions();
+  // 📱 Sur un VRAI téléphone (petit écran) → app plein écran native, sans cadre
+  if (winW <= 520) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }}>{children}</View>;
+  }
   const CONTENT_W = 402;
   const CONTENT_H = 900; // couronne + marque + sous-titre + téléphone (760) + hint
   const scale = Math.min(1, (winH - 12) / CONTENT_H, (winW - 12) / (CONTENT_W + 20));
