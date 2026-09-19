@@ -65,7 +65,7 @@ export const Polyline = ({ coordinates = [], strokeColor = '#E3B94E', strokeWidt
 // ---------- Carte ----------
 const DEFAULT_CENTER: [number, number] = [-8.001, 12.6255]; // Bamako [lng, lat]
 
-const MapView = ({ style, region, children }: any) => {
+const MapView = ({ style, region, children, onPress }: any) => {
   const zoom = region?.latitudeDelta
     ? Math.min(15, Math.max(0, Math.log2(360 / region.latitudeDelta)) - 0.5)
     : 12.2;
@@ -78,6 +78,18 @@ const MapView = ({ style, region, children }: any) => {
       mapStyle={nigerRoyalMaplibreStyle as any}
       attribution
       attributionPosition={{ bottom: 8, left: 8 }}
+      onPress={
+        onPress
+          ? (e: any) => {
+              const ll = e?.nativeEvent?.lngLat ?? e?.lngLat;
+              if (!ll) return;
+              const coord = Array.isArray(ll)
+                ? { latitude: ll[1], longitude: ll[0] }
+                : { latitude: ll.latitude, longitude: ll.longitude };
+              onPress(coord);
+            }
+          : undefined
+      }
     >
       <Camera initialViewState={{ center, zoom, pitch: 0, bearing: 0 }} />
       {children}

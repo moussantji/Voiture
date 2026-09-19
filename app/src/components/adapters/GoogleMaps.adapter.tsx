@@ -23,6 +23,8 @@ const MapView = (props: any) => (
     toolbarEnabled={false}
     rotateEnabled={false}
     pitchEnabled={false}
+    onPress={props.onPress ? (e: any) => props.onPress(e.nativeEvent.coordinate) : undefined}
+    onLongPress={props.onPress ? (e: any) => props.onPress(e.nativeEvent.coordinate) : undefined}
   >
     {props.children}
   </RNMapView>

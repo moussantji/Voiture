@@ -212,13 +212,26 @@ function WebPolyline({ coordinates = [], strokeColor = '#E3B94E', strokeWidth = 
   );
 }
 
-function WebMap({ children, style, region, customMapStyle: _ }: any) {
+function WebMap({ children, style, region, customMapStyle: _, onPress }: any) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const project = buildProjection(region, size.width || 1, size.height || 1);
+  const handlePress = onPress
+    ? (e: any) => {
+        const lx = e?.nativeEvent?.locationX ?? 0;
+        const ly = e?.nativeEvent?.locationY ?? 0;
+        if (!size.width) return;
+        onPress({
+          latitude: region.latitude + region.latitudeDelta / 2 - (ly / size.height) * region.latitudeDelta,
+          longitude: region.longitude - region.longitudeDelta / 2 + (lx / size.width) * region.longitudeDelta,
+        });
+      }
+    : undefined;
   return (
     <View
       style={[styles.webMap, style]}
       onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+      onStartShouldSetResponder={handlePress ? () => true : undefined}
+      onResponderGrant={handlePress}
     >
       {size.width > 0 && (
         <>

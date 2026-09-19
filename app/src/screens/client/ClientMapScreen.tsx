@@ -74,6 +74,8 @@ export default function ClientMapScreen({ navigation }: Props) {
   const [cars, setCars] = useState<Car[]>(CARS);
   const [userPos] = useState<LatLng>(USER_POSITION);
   const [destination, setDestination] = useState<Quartier | null>(null);
+  // 📍 Destination choisie en touchant la carte
+  const [destCustom, setDestCustom] = useState<{ name: string; latitude: number; longitude: number } | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [notifVisible, setNotifVisible] = useState(false);
@@ -112,33 +114,64 @@ export default function ClientMapScreen({ navigation }: Props) {
     return () => clearTimeout(t);
   }, [phase]);
 
-  const km = destination ? distanceKm(userPos, destination) * 1.35 : 0; // ×1.35 trajet routier
+  // 🎯 Cible effective : quartier choisi OU point déposé sur la carte
+  const dest = useMemo(
+    () =>
+      destination
+        ? { name: destination.name, latitude: destination.latitude, longitude: destination.longitude }
+        : destCustom,
+    [destination, destCustom],
+  );
+
+  // 📍 Toucher la carte = déposer la destination (+ quartier le plus proche comme nom)
+  const onMapPress = (c: LatLng) => {
+    if (phase !== 'idle') return;
+    let best = { d: Number.POSITIVE_INFINITY, name: 'Point sur la carte' };
+    for (const q of QUARTIERS) {
+      const d = distanceKm(c, q);
+      if (d < best.d) best = { d, name: q.name };
+    }
+    setDestination(null);
+    setDestCustom({
+      name: best.d <= 1.6 ? `📍 ≈ ${best.name}` : '📍 Point sur la carte',
+      latitude: c.latitude,
+      longitude: c.longitude,
+    });
+  };
+
+  const km = dest ? distanceKm(userPos, dest) * 1.35 : 0; // ×1.35 trajet routier
   const price = estimatePrice(km);
   const duration = estimateDurationMin(km);
 
   // Itinéraire doré (courbe légère)
   const route = useMemo(() => {
-    if (!destination) return null;
+    if (!dest) return null;
     const mid1: LatLng = {
-      latitude: userPos.latitude + (destination.latitude - userPos.latitude) * 0.35 + 0.004,
-      longitude: userPos.longitude + (destination.longitude - userPos.longitude) * 0.35,
+      latitude: userPos.latitude + (dest.latitude - userPos.latitude) * 0.35 + 0.004,
+      longitude: userPos.longitude + (dest.longitude - userPos.longitude) * 0.35,
     };
     const mid2: LatLng = {
-      latitude: userPos.latitude + (destination.latitude - userPos.latitude) * 0.7,
-      longitude: userPos.longitude + (destination.longitude - userPos.longitude) * 0.7 + 0.003,
+      latitude: userPos.latitude + (dest.latitude - userPos.latitude) * 0.7,
+      longitude: userPos.longitude + (dest.longitude - userPos.longitude) * 0.7 + 0.003,
     };
-    return [userPos, mid1, mid2, { latitude: destination.latitude, longitude: destination.longitude }];
-  }, [destination, userPos]);
+    return [userPos, mid1, mid2, { latitude: dest.latitude, longitude: dest.longitude }];
+  }, [dest, userPos]);
 
   const resetTrip = () => {
     setPhase('idle');
     setDestination(null);
+    setDestCustom(null);
   };
 
   return (
     <View style={styles.root}>
-      {/* 🗺️ Carte plein écran */}
-      <MapView style={StyleSheet.absoluteFill} region={BAMAKO_REGION} customMapStyle={nigerRoyalMapStyle}>
+      {/* 🗺️ Carte plein écran — 📍 toucher pour déposer la destination */}
+      <MapView
+        style={StyleSheet.absoluteFill}
+        region={BAMAKO_REGION}
+        customMapStyle={nigerRoyalMapStyle}
+        onPress={onMapPress}
+      >
         {cars.map((c) => (
           <Marker key={c.id} coordinate={{ latitude: c.latitude, longitude: c.longitude }}>
             <CarDot heading={c.heading} />
@@ -147,6 +180,13 @@ export default function ClientMapScreen({ navigation }: Props) {
         <Marker coordinate={userPos}>
           <UserPin anim={pulse} />
         </Marker>
+        {dest && (
+          <Marker coordinate={{ latitude: dest.latitude, longitude: dest.longitude }}>
+            <View style={{ transform: [{ translateY: -10 }] }}>
+              <GoldFlagIcon size={24} />
+            </View>
+          </Marker>
+        )}
         {route && <Polyline coordinates={route} strokeColor={colors.accent} strokeWidth={4} />}
       </MapView>
 
@@ -161,6 +201,13 @@ export default function ClientMapScreen({ navigation }: Props) {
         </FloatingIcon>
       </View>
 
+      {/* 📍 Astuce : toucher la carte pour placer la destination */}
+      {!dest && (
+        <View style={[styles.hintPill, { top: insets.top + 70 }]}>
+          <Text style={styles.hintText}>📍 Touchez la carte pour placer votre destination</Text>
+        </View>
+      )}
+
       {/* 🧭 Bottom sheet */}
       <View style={{ paddingBottom: insets.bottom + 6 }}>
         <Sheet>
@@ -169,11 +216,11 @@ export default function ClientMapScreen({ navigation }: Props) {
               <FieldRow
                 icon={<GoldFlagIcon size={18} />}
                 label="Destination"
-                value={destination?.name}
+                value={dest?.name}
                 placeholder="Où allez-vous ?"
                 onPress={() => setPickerVisible(true)}
               />
-              {destination && (
+              {dest && (
                 <View style={styles.estimateRow}>
                   <InfoBlock label="Distance" value={`${km.toFixed(1)} km`} />
                   <InfoBlock label="Durée" value={`~${duration} min`} />
@@ -184,7 +231,7 @@ export default function ClientMapScreen({ navigation }: Props) {
               <GoldButton
                 title={phase === 'searching' ? 'Recherche d’un chauffeur…' : 'Rechercher une voiture'}
                 loading={phase === 'searching'}
-                disabled={!destination || phase === 'searching'}
+                disabled={!dest || phase === 'searching'}
                 onPress={() => setPhase('searching')}
               />
             </>
@@ -218,6 +265,21 @@ export default function ClientMapScreen({ navigation }: Props) {
             <View style={styles.sheetHandle} />
             <Text style={styles.pickerTitle}>Où allez-vous ?</Text>
             <ScrollView bounces={false} style={{ maxHeight: 420 }}>
+              {/* 🗺️ Option : déposer le point directement sur la carte */}
+              <TouchableOpacity
+                style={[styles.pickerItem, styles.pickerItemMap]}
+                activeOpacity={0.8}
+                onPress={() => setPickerVisible(false)}
+              >
+                <View style={styles.pickerIconWrap}>
+                  <Text style={{ fontSize: 13, color: colors.accent }}>📍</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.pickerName, { color: colors.accent }]}>Choisir sur la carte</Text>
+                  <Text style={styles.pickerDist}>Touchez un point directement sur la carte</Text>
+                </View>
+                <Text style={styles.chevr}>›</Text>
+              </TouchableOpacity>
               {QUARTIERS.map((q) => {
                 const d = distanceKm(userPos, q) * 1.35;
                 return (
@@ -227,6 +289,7 @@ export default function ClientMapScreen({ navigation }: Props) {
                     activeOpacity={0.8}
                     onPress={() => {
                       setDestination(q);
+                      setDestCustom(null);
                       setPickerVisible(false);
                       setPhase('idle');
                     }}
@@ -267,6 +330,24 @@ export default function ClientMapScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background, justifyContent: 'flex-end' },
+  hintPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 22,
+  },
+  hintText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
+  pickerItemMap: { backgroundColor: 'rgba(227,185,78,0.08)', borderRadius: 12, paddingHorizontal: 8, marginBottom: 2 },
   topBar: {
     position: 'absolute',
     left: 14,
